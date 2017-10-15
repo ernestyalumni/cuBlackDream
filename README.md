@@ -6,6 +6,13 @@ Machine Learning and Deep Learning in CUDA C++14 for CUDA 9, CUDNN 7 and above; 
 - Fastest File I/O 
 - Parallel programming, parallel algorithms *only* as the aim to move all the computation to the GPU
 
+## Glossary for directory/Explanation of Folder Structure here  
+
+- `src`  : source files, the actual code
+- `data` : sample datasets 
+- `LICENSE`  
+- `README.md`  
+
 ### Why the name `cuBlackDream`?  
 
 > With artificial intelligence we are summoning the demon.  <cite>Elon Musk</cite>  cf. [WP, Oct. 24, 2014](https://www.washingtonpost.com/news/innovations/wp/2014/10/24/elon-musk-with-artificial-intelligence-we-are-summoning-the-demon/?utm_term=.3a9b517cdddf)
