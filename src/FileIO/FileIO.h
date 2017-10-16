@@ -24,7 +24,7 @@
  * */
 /* 
  * COMPILATION TIP
- * nvcc -std=c++14 -lcublas ./smartptr/smartptr.cu smartCUBLAS_playground.cu -o smartCUBLAS_playground.exe
+ * nvcc -std=c++14 FileIO.cpp -o FileIO.o
  * 
  * */
 #ifndef __FILEIO_H__
@@ -156,8 +156,15 @@ class CSVIterator
  */
 std::vector<std::vector<std::string>> csv2strvecIter(std::string & filename); 
 
+/* =============== Preprocessing on the host CPU =============== */
 
-
+// Necessarily, when loading from .csv files as above, they're loaded in row-major order 
+/**
+ * 	@fn h_flatten_colmaj
+ * 	@brief flatten std::vector of std::vector on host into column major ordering
+ * */
+std::vector<float> h_flatten_colmaj(std::vector<std::vector<float>> &); 
+ 
 
 
 #endif // __FILEIO_H__

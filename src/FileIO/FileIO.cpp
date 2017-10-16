@@ -337,5 +337,30 @@ std::vector<std::vector<std::string>> csv2strvecIter(std::string & filename)
 	return strvec;
 	}	
 }	
+
+
+/* =============== Preprocessing on the host CPU =============== */
+
+// Necessarily, when loading from .csv files as above, they're loaded in row-major order 
+/**
+ * 	@fn h_flatten_colmaj
+ * 	@brief flatten std::vector of std::vector on host, in column major ordering 
+ *  @return std::vector<float> (so that A is "flattened" in column-major ordering)
+ * */
+std::vector<float> h_flatten_colmaj(std::vector<std::vector<float>> &A) 
+{
+	const int m = A.size(); // number of rows, m 
+	const int n = A[0].size(); // number of columns, n
+	std::vector<float> A_out;
+	for (int i = 0 ; i< m; i++) 	// i is the ith row of the matrix A
+	{
+		for (auto row : A) { 
+			A_out.push_back( row[i] );
+		}
+	}
+	return A_out;
+	
+}
+
 	
 
