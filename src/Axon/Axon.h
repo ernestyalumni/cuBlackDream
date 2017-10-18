@@ -55,6 +55,22 @@ struct deleterRR_struct
 /* =============== END of custom deleters =============== */
 
 
+/* =============== CUDA kernel functions =============== */
+/** @fn addb
+ * 	@brief add bias 
+ * 	@note if this function was declared inside a class, as a class member, 
+ * 			I obtained:
+ * 			error: illegal combination of memory qualifiers 
+ * 	@details Given (a_l)_i^{\  \  j} \in \text{Mat}_{\mathbb{R}}(m, s_l), 
+ * 				we want to add a bias b, but along the "columns", b=b^j
+ * 				assume (a_l) is COLUMN-major ordered.  
+ *  			it is reasonable to assume m > s_l 
+ * 				(i.e. number of rows, m, also representing the number of input examples, 
+ * 				s_l = size dims. of "layer" l, a_l, or number of "nodes" of a_l
+ * */
+__global__ void addb_kernel(const int, const int, float*,const float*);
+
+
 /* =============== Axon classes =============== */
 
 /**
@@ -92,8 +108,22 @@ class Axon
 
 	public:
 		// Constructor
-		Axon(const int, const int);
+		Axon(const int s_lm1, const int s_l);
 
+		// Copy Constructor
+		/**
+		  *  @fn Axon(const Axon& old_axon)
+		  *  @brief copy constructor for Axon class
+		  *  @note C++11 && token used to mean "rvalue reference", rvalue reference and move constructors
+		  * @ref http://www.geeksforgeeks.org/copy-constructor-in-cpp/
+		  * https://stackoverflow.com/questions/16030081/copy-constructor-for-a-class-with-unique-ptr
+		  * https://en.wikipedia.org/wiki/C%2B%2B11#Rvalue_references_and_move_constructors
+		  * */
+		Axon( Axon &&); 
+		
+		// operator overload assignment = 
+		Axon &operator=(Axon &&);
+		
 		// member functions
 		// for loading given values onto Theta, b
 		void load_from_hvec(std::vector<float>&,std::vector<float>& );
@@ -111,11 +141,31 @@ class Axon
 		 *  @param const int m - number of examples
 		 * */
 		void load_from_hXvec(std::vector<float>&, const int );
+
+		/** We're not transferring ownership, so we don't use std::move
+		 * @ref https://stackoverflow.com/questions/41871115/why-would-i-stdmove-an-stdshared-ptr
+		 * */
+		void load_alm1_from_ptr(std::shared_ptr<float> &);
+
+		/** We're transferring ownership, so we  use std::move
+		 * @ref https://stackoverflow.com/questions/41871115/why-would-i-stdmove-an-stdshared-ptr
+		 * */
+		void move2al_from_ptr(std::shared_ptr<float> & ptr_sh_output_layer) ;
+
 		
 		// initialize layer l
+		/**
+		 * 	@fn init_al 
+		 * 	@brief initialize layer l
+		 *  @param const int m - number of examples
+		 * */
 		void init_al(const int);
 
-		// for getting size dimensions
+		/**
+		 *  @fn getSizeDims
+		 *  @brief for getting size dimensions, vector of 3 ints
+		 *  @details ( s_lm1, s_l, m )
+		 * */
 		std::vector<int> getSizeDims();
 		
 		// for getting Theta,b, and lth layer al, zl (after activation function applied)
@@ -134,7 +184,10 @@ class Axon
 		 * 	@brief right multiplication
 		 * */
 		void rightMul(); 
-		
+
+		/* ========== Add bias ========== */
+		void addb(const int);
+
 
 		// destructor
 		~Axon();			
@@ -143,172 +196,6 @@ class Axon
 
 
 
-/**
- *  @class Axon_sh
- *  @brief Axon, using shared pointers, contains weights matrix (Theta), and bias b between 2 layers
- */
-class Axon_sh
-{
-	private:
-		// size dims. of Theta,b - "weights" and bias
-		int l; // lth layer, l=1,2,...L for L total number of layers
-		int s_lm1; // size dim. of l-1th layer
-		int s_l;	// size dim. of lth layer
-
-		int m; // number of examples, m
-
-		// member custom deleter as struct; auto lambda not allowed here
-		struct deleterRR {
-			void operator()(float* ptr) const
-			{
-				cudaFree(ptr);
-			}
-		};
-		
-		// members 
-		// Theta,b - "weights" and bias
-		std::shared_ptr<float> Theta;
-		std::shared_ptr<float> b;
-
-		// "layers" a^{l-1}, a^l, i.e. alm1, al
-		std::shared_ptr<float> alm1;
-		std::shared_ptr<float> al;
-
-
-	public:
-		// Constructor
-		Axon_sh(const int, const int);
-		
-		// member functions
-		// for loading given values onto Theta, b
-		void load_from_hvec(std::vector<float>&,std::vector<float>& );
-		
-		/**
-		 * 	@fn load_from_d 
-		 * 	@brief (Theta,b) on device GPU -> std::vector on host 
-		 * */
-		void load_from_d(std::vector<float>&, std::vector<float>& );
-		
-		void load_from_uniq(std::unique_ptr<float[],deleterRR> &,std::unique_ptr<float[],deleterRR> &);
-		
-		// for loading input data X into layer l-1, alm1
-		/**
-		 * 	@fn load_from_hXvec 
-		 * 	@brief load from host, X input data, as a std::vector<float>
-		 *  @param const int m - number of examples
-		 * */
-		void load_from_hXvec(std::vector<float>&, const int );
-		
-		// initialize layer l
-		void init_al(const int);
-
-		// for getting size dimensions
-		std::vector<int> getSizeDims();
-
-		
-		// for getting Theta,b, and lth layer al, zl (after activation function applied)
-		std::shared_ptr<float> getTheta();
-		
-		std::shared_ptr<float> getb();
-
-		std::shared_ptr<float> getalm1();
-
-		std::shared_ptr<float> getal();
-
-
-		/**
-		 *  @fn rightMul
-		 *  @class Axon_sh
-		 * 	@brief right multiplication
-		 * */
-		void rightMul(); 
-		
-
-		// destructor
-		~Axon_sh();			
-};
-
-
-/**
- *  @class Axon_u
- *  @brief Axon, using unique pointers, contains weights matrix (Theta), and bias b between 2 layers
- */
-class Axon_u
-{
-	private:
-		// size dims. of Theta,b - "weights" and bias
-		int l; // lth layer, l=1,2,...L for L total number of layers
-		int s_lm1; // size dim. of l-1th layer
-		int s_l;	// size dim. of lth layer
-
-		int m; // number of examples, m
-
-		// custom deleter as a STRUCT for cublasHandle 
-		struct del_cublasHandle_struct {
-			void operator()(cublasHandle_t* ptr) { cublasDestroy(*ptr); }
-		};
-
-
-		// members 
-		// Theta,b - "weights" and bias
-		std::unique_ptr<float[], deleterRR_struct> Theta;
-		std::unique_ptr<float[], deleterRR_struct> b;
-
-		// "layers" a^{l-1}, a^l, i.e. alm1, al
-		std::unique_ptr<float[], deleterRR_struct> alm1;
-		std::unique_ptr<float[], deleterRR_struct> al;
-
-	public:
-		// Constructor
-		Axon_u(const int, const int);
-
-		// member functions
-		// for loading given values onto Theta, b
-		void load_from_hvec(std::vector<float>&,std::vector<float>& );
-		
-		/**
-		 * 	@fn load_from_d 
-		 * 	@brief (Theta,b) on device GPU -> std::vector on host 
-		 * */
-		void load_from_d(std::vector<float>&, std::vector<float>& );
-
-		// for loading input data X into layer l-1, alm1
-		/**
-		 * 	@fn load_from_hXvec 
-		 * 	@brief load from host, X input data, as a std::vector<float>
-		 *  @param const int m - number of examples
-		 * */
-		void load_from_hXvec(std::vector<float>&, const int );
-		
-		// initialize layer l
-		void init_al(const int);
-
-		// for getting size dimensions
-		std::vector<int> getSizeDims();
-		
-		// for getting Theta,b, and lth layer al, zl (after activation function applied)
-		std::unique_ptr<float[],deleterRR_struct> getTheta();
-		
-		std::unique_ptr<float[],deleterRR_struct> getb();
-
-		std::unique_ptr<float[],deleterRR_struct> getalm1();
-
-		std::unique_ptr<float[],deleterRR_struct> getal();
-
-
-		/**
-		 *  @fn rightMul
-		 *  @class Axon_sh
-		 * 	@brief right multiplication
-		 * */
-		void rightMul(); 
-		
-
-		// destructor
-		~Axon_u();			
-
-
-};
 
 
 

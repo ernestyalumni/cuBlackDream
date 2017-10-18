@@ -24,14 +24,53 @@
  * */
 /* 
  * COMPILATION TIP
- * nvcc -std=c++14 -lcublas ../src/FileIO/FileIO.cpp ../src/Axon/Axon.cu linreg.cu -o linreg.exe
+ * nvcc -std=c++14 -lcublas ../src/FileIO/FileIO.cpp ../src/Axon/Axon.o ../src/smartptr/smartptr.cu linreg.cu -o linreg.exe
  * 
  * */
  
 #include "../src/FileIO/FileIO.h"			// csv2fvec
 #include "../src/Axon/Axon.h"				// Axon_sh
+#include "../src/smartptr/smartptr.h"		// smartptr::RRModule
+#include "../src/Feedfwd/Feedfwd.h"			// LinReg
+/** 
+ *  @fn addb_explicit
+ *  @brief I explicitly show how to add bias to the "output" layer
+ *  @details Given (a_l)_i^{\  \  j} \in \text{Mat}_{\mathbb{R}}(m, s_l), 
+ * 				we want to add a bias b, but along the "columns", b=b^j
+ * 				assume (a_l) is COLUMN-major ordered.  
+ *  			it is reasonable to assume m > s_l 
+ * 				(i.e. number of rows, m, also representing the number of input examples, 
+ * 				s_l = size dims. of "layer" l, a_l, or number of "nodes" of a_l
+ * */
 
+ 
+__global__ void addb_explicit(const int m, const int s_l, float* a_l, const float* b) {
+	int k = threadIdx.x + blockDim.x * blockIdx.x ; // k is global thread index 
 
+	// assume COLUMN-major ordering 
+//	int i = k % m; 	// this the ith index in a matrix a_l(i,j)
+	int j = k/m; 	// this is the jth index in matrix a_l(i,j)
+
+	__shared__ float sh_bj[1]; // shared bj, jth component of b
+	
+	if ( j >= s_l) // check if j is access element outside of b\in \mathbb{R}^{s_l}
+	{ return; } else { 
+		sh_bj[0] = b[j]; 
+	}
+	int SIZEDIM_A_L = m*s_l;
+	/* check if we've launched too many threads than needed to compute
+	 * over all of s_l \in \text{Mat}_{\mathbb{R}}(m,s_l) - this could be the case 
+	 * given arbitrary thread blocks launched in <<<>>>
+	 * */
+	if (k >= SIZEDIM_A_L)  
+	{
+		return ; 
+	}
+	__syncthreads();
+	
+	a_l[k] = a_l[k] + sh_bj[0];
+	
+}
 
 int main(int argc, char* argv[]) { 
 	/* =============== ex1data1.txt =============== */ 
@@ -57,9 +96,25 @@ int main(int argc, char* argv[]) {
 	int K = y_ex1data1[0].size(); // dim. of output
 	int m = X_ex1data1.size(); 	// m = number of training examples
 
+	std::cout << " d : " << d << std::endl;
+	std::cout << " K : " << K << std::endl;
+	std::cout << " m : " << m << std::endl;
+
+
 	// preprocess X_ex1data1
 	// flatten X_ex1data1 into column-major ordering 
-	auto X_ex1data1_colmaj = h_flatten_colmaj( X_ex1data1 );
+//	auto X_ex1data1_colmaj = h_flatten_colmaj( X_ex1data1 );
+	std::vector<float> X_ex1data1out;
+	for (int j=0; j<d; j++){ 
+		for (int i=0; i<m; i++) {
+			X_ex1data1out.push_back( (X_ex1data1[i])[j] ); 
+		}
+	}
+	std::cout << std::endl << " X_ex1data1out.size() : " << X_ex1data1out.size() << std::endl;
+
+
+	std::vector<float> X_ex1data1_colmaj = h_flatten_colmaj( X_ex1data1 );
+	auto y_ex1data1_colmaj = h_flatten_colmaj( y_ex1data1 ); 
 	
 	Axon Thetab(d,K);
 	// Initialize fitting parameters with 0
@@ -74,6 +129,96 @@ int main(int argc, char* argv[]) {
 	/* ========== Compute cost functional J and residuals ========== */
 	Thetab.rightMul();
 
+	/* ========== Add bias ========== */
+	
+	/* ===== explicit implementation ===== */
+	// this WORKS
+/*	auto al = Thetab.getal();
+	auto b = Thetab.getb();
+	auto sizeDims = Thetab.getSizeDims();
+	int SIZEDIM_A_L = m* sizeDims[1];
+	int M_x = 128; // number of threads in a single thread block in x-direction
+	addb_explicit<<<(SIZEDIM_A_L + M_x -1)/M_x, M_x>>>( m, sizeDims[1], al.get(), b.get());
+*/
+	int M_x = 128; // number of threads in a single thread block in x-direction
+	Thetab.addb(M_x);
+
+	// wrap up the y data
+	smartptr::RRModule ptr_y( m*K);
+	ptr_y.load_from_hvec( y_ex1data1_colmaj);
+
+// this WORKS	
+//	auto res = ptr_y.get(); // residual
+	auto yhat = Thetab.getal();
+	// custom deleter as a STRUCT for cublasHandle 
+	struct del_cublasHandle_struct {
+		void operator()(cublasHandle_t* ptr) { cublasDestroy(*ptr); }
+	};
+	
+	std::unique_ptr<cublasHandle_t,del_cublasHandle_struct> handle_u(
+		new cublasHandle_t);
+	cublasCreate(handle_u.get());	
+	
+	// this WORKS
+//	float a1 = -1.0f;
+	const int SIZEDIM_Y = m*K;
+
+
+
+	std::unique_ptr<float[], deleterRR_struct> res(new float[SIZEDIM_Y], deleterRR_struct());
+	cudaMallocManaged((void **) &res, SIZEDIM_Y*sizeof(float));
+	float a1 = 1.0f;
+	float bet = -1.0f; 
+	cublasSgeam(*handle_u.get(), 
+		CUBLAS_OP_N, CUBLAS_OP_N, m, K, &a1, 
+		yhat.get(), 
+//		m, &bet, y_data.get(), m, 
+		m, &bet, ptr_y.get().get(), m, 
+		res.get(), m );
+
+
+
+
+	// this WORKS
+//	cublasSaxpy(*handle_u.get(), SIZEDIM_Y, &a1, yhat.get(), 1, res.get(), 1); 
+
+
+
 
 	
+	float costJ=0.f;
+	cublasSnrm2(*handle_u.get(), SIZEDIM_Y, res.get(), 1, &costJ);
+	costJ = 0.5f*costJ*costJ/ ((float) m);
+	
+	std::cout << " costJ : " << costJ << std::endl;
+	
+	auto a0 = Thetab.getalm1();
+	
+//	cublasSgemm(*handle_u.get(), CUBLAS_OP_T, CUBLAS_OP_N,d,K,m,&a1, a0.get(), 
+
+	// WORKS but...
+//	std::vector<Axon> axons;
+	// DOES NOT WORK
+//	axons.push_back(Thetab);
+	// DOES NOT WORK
+//	std::vector<Axon> axons = { Thetab };
+	
+	std::vector<int> FFsizeDims = { d,K }; 
+
+	LinReg linreg( FFsizeDims );
+
+	linreg.load_y_from_hvec(y_ex1data1_colmaj);
+
+	std::cout << " SIZE_X = h_Xvec.size() : " << X_ex1data1_colmaj.size() << std::endl;
+//	for (auto ele : X_ex1data1_colmaj) { std::cout << ele << " "; }
+
+	linreg.load_X_from_hvec(X_ex1data1_colmaj, m );
+
+	linreg.feedfwd();
+
+	float result_linregcost = 0.f; 
+	result_linregcost = linreg.compute_costJ_L2norm();
+	
+	std::cout << " result of linReg cost : " << result_linregcost << std::endl;
+
 }
