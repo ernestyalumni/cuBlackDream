@@ -98,15 +98,6 @@ Axon::Axon(const int s_lm1,const int s_l) : s_lm1(s_lm1), s_l(s_l)  {
  * */
 Axon::Axon(Axon&& old_axon) : Theta(std::move(old_axon.Theta)), b(std::move(old_axon.b))
 {
-
-//	alm1 = std::move( old_axon.alm1 );
-//	al = std::move( old_axon.al );
-
-/*	std::vector<int> old_sizeDims = old_axon.getSizeDims();
-	s_lm1 = old_sizeDims[0]; 
-	s_l = old_sizeDims[1];
-	m = old_sizeDims[2];
-*/
 	s_lm1 = old_axon.s_lm1;
 	s_l = old_axon.s_l;
 	m = old_axon.m;
@@ -114,13 +105,6 @@ Axon::Axon(Axon&& old_axon) : Theta(std::move(old_axon.Theta)), b(std::move(old_
 	l = old_axon.l; // lth layer
 	//del_cublasHandle_struct = old_axon.del_cublasHandle_struct;
 	
-/*	Theta = std::move( old_axon.getTheta() );
-	b = std::move( old_axon.getb( ));
-	alm1 = std::move( old_axon.getalm1() );
-	al = std::move( old_axon.getal() );
-*/
-//	Theta = std::move(old_axon.Theta);
-//	b = std::move( old_axon.b );
 	alm1 = std::move( old_axon.alm1 );
 	al = std::move( old_axon.al );	
 }
@@ -203,6 +187,10 @@ void Axon::move2al_from_ptr(std::shared_ptr<float> & ptr_sh_output_layer)
 	al = std::move( ptr_sh_output_layer );
 }
 
+void Axon::move2alm1_from_ptr(std::shared_ptr<float> & ptr_sh_input_layer) 
+{
+	alm1 = std::move( ptr_sh_input_layer );
+}
 
 
 // initialize layer l
@@ -243,6 +231,16 @@ std::unique_ptr<float[],deleterRR_struct> Axon::getb() {
 	return ptr;
 }
 
+void Axon::move2Theta_from_ptr(std::unique_ptr<float[], deleterRR_struct> & ptr_Theta) 
+{
+	Theta = std::move( ptr_Theta );
+}
+
+void Axon::move2b_from_ptr(std::unique_ptr<float[], deleterRR_struct> & ptr_b) 
+{
+	b = std::move( ptr_b );
+}
+
 std::shared_ptr<float> Axon::getalm1() {
 	auto ptr = std::move(alm1);
 	return ptr;
@@ -254,6 +252,10 @@ std::shared_ptr<float> Axon::getal() {
 	return ptr;
 }
 
+
+/* =============== "connect" the Axon =============== */
+/* Once Axon has been setup, by the above, do the following to 
+/* "connect through" the Axon */
 
 /**
  *  @fn rightMul

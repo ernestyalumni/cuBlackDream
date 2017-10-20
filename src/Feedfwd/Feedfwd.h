@@ -30,6 +30,9 @@
 #ifndef __FEEDFWD_H__
 #define __FEEDFWD_H__ 
 
+// this WORKS
+//#include <iostream>
+
 #include <memory> 			// std::shared_ptr, std::unique_ptr
 #include <cassert> 			// assert
 
@@ -37,12 +40,15 @@
 
 
 
-/** @fn : computeJ_L2norm
- * 	@brief Compute cost functional J, using the L2-norm form
- * */ 
-/*float computeJ_L2norm(const int,
-	std::shared_ptr<float> &,std::unique_ptr<float[],deleterRR_struct> & );
-*/
+/* =============== CUDA kernel functions =============== */
+/** @fn setconstval_kernel
+ * 	@brief set a float array of length Lx all to values of const_val 
+ * 	@details cudaMemset only sets an array to 0 value; we want value of 1
+ * */
+__global__ void setconstval_kernel(const int, const float, float*);
+
+
+
 /**	@class LinReg
  * 	@brief Linear Regression  
  * */
@@ -55,16 +61,20 @@ class LinReg
 
 		int m; // number of examples in the dataset
 
+		// custom deleter as a STRUCT for cublasHandle 
+		struct del_cublasHandle_struct {
+			void operator()(cublasHandle_t* ptr) { cublasDestroy(*ptr); }
+		};
+	
+
 	public:
 		// Constructor
 		LinReg(std::vector<int> &);
 		
-//		LinReg(std::vector<Axon> &);
-		
 		// member functions
-//		void addAxon(Axon &);
-		
-	
+
+		// for loading (Theta,B) values from host
+		void load_from_hThetaBs(std::vector<std::vector<float>> & ) ; 
 
 		// for loading output data y 
 		/**
@@ -79,7 +89,19 @@ class LinReg
 		 * 	@brief load from host, X input data, as a std::vector<float>
 		 *  @param const int m - number of examples
 		 * */		
-		void load_X_from_hvec(std::vector<float>&, const int);
+		void load_X_from_hvec(std::vector<float>& , const int);
+
+		/* =============== "getting" functions =============== */
+		// for getting Theta,b, and lth layer al, zl (after activation function applied), lth Axon, l=1,2,...L
+		std::unique_ptr<float[],deleterRR_struct> getTheta(const int);
+		
+		std::unique_ptr<float[],deleterRR_struct> getb(const int);
+
+		std::shared_ptr<float> getalm1(const int);
+
+		std::shared_ptr<float> getal(const int);		
+
+		std::unique_ptr<float[],deleterRR_struct> gety();
 
 
 		/* ========== Feedforward ========== */
@@ -94,6 +116,16 @@ class LinReg
 		
 		/* ========== Cost functional J ========== */
 		float compute_costJ_L2norm();
+		
+		/**	@fn grad_desc_step
+		 *	@param Mx - number of threads in a (single) thread block in x-direction
+		 * 				this is needed for setconstval_kernel, to create a vector of 1's as 
+		 * 				a numerical trick for the usual (mathematical) Kronecker delta function	 
+		 * */
+		void grad_desc_step(const float alpha_rate=0.05f, int Mx=128);
+		
+		void grad_desc(const int iterations=1500, const float alpha_rate=0.05f, int Mx=128);
+		
 		
 		// destructor
 		~LinReg();

@@ -24,7 +24,7 @@
  * */
 /* 
  * COMPILATION TIP
- * nvcc -std=c++14 -lcublas ../src/FileIO/FileIO.cpp ../src/Axon/Axon.o ../src/smartptr/smartptr.cu linreg.cu -o linreg.exe
+ * nvcc -std=c++14 -lcublas ../src/FileIO/FileIO.cpp ../src/Axon/Axon.o ../src/smartptr/smartptr.cu ../src/Feedfwd/Feedfwd.cu linreg.cu -o linreg.exe
  * 
  * */
  
@@ -32,6 +32,9 @@
 #include "../src/Axon/Axon.h"				// Axon_sh
 #include "../src/smartptr/smartptr.h"		// smartptr::RRModule
 #include "../src/Feedfwd/Feedfwd.h"			// LinReg
+
+#include <stdio.h> // printf
+
 /** 
  *  @fn addb_explicit
  *  @brief I explicitly show how to add bias to the "output" layer
@@ -43,7 +46,6 @@
  * 				s_l = size dims. of "layer" l, a_l, or number of "nodes" of a_l
  * */
 
- 
 __global__ void addb_explicit(const int m, const int s_l, float* a_l, const float* b) {
 	int k = threadIdx.x + blockDim.x * blockIdx.x ; // k is global thread index 
 
@@ -73,6 +75,16 @@ __global__ void addb_explicit(const int m, const int s_l, float* a_l, const floa
 }
 
 int main(int argc, char* argv[]) { 
+	/** ==================== timing CUDA operations ==================== 
+	 * @ref https://stackoverflow.com/questions/7876624/timing-cuda-operations
+	 * */
+	float timeinterval; 
+	cudaEvent_t starttiming, stoptiming;
+	cudaEventCreate(&starttiming);
+	cudaEventCreate(&stoptiming);
+	
+
+
 	/* =============== ex1data1.txt =============== */ 
 	std::string filename_ex1data1 = "../data/ex1data1.txt";
 	
@@ -120,6 +132,9 @@ int main(int argc, char* argv[]) {
 	// Initialize fitting parameters with 0
 	std::vector<float> h_Theta(d*K, 0.f);
 	std::vector<float> h_b(K,0.f );
+	std::vector<std::vector<float>> h_Thetab;
+	h_Thetab.push_back(h_Theta);
+	h_Thetab.push_back(h_b);
 
 	Thetab.load_from_hvec(h_Theta,h_b);	// load the initial values of Theta, b
 	Thetab.load_from_hXvec(X_ex1data1_colmaj,m); // load the X data
@@ -177,15 +192,10 @@ int main(int argc, char* argv[]) {
 		res.get(), m );
 
 
-
-
 	// this WORKS
 //	cublasSaxpy(*handle_u.get(), SIZEDIM_Y, &a1, yhat.get(), 1, res.get(), 1); 
 
 
-
-
-	
 	float costJ=0.f;
 	cublasSnrm2(*handle_u.get(), SIZEDIM_Y, res.get(), 1, &costJ);
 	costJ = 0.5f*costJ*costJ/ ((float) m);
@@ -207,7 +217,11 @@ int main(int argc, char* argv[]) {
 
 	LinReg linreg( FFsizeDims );
 
+	linreg.load_from_hThetaBs(h_Thetab);
 	linreg.load_y_from_hvec(y_ex1data1_colmaj);
+
+	// sanity check
+	for (auto ele : y_ex1data1_colmaj) { std::cout << ele << " " ; } std::cout << std::endl;
 
 	std::cout << " SIZE_X = h_Xvec.size() : " << X_ex1data1_colmaj.size() << std::endl;
 //	for (auto ele : X_ex1data1_colmaj) { std::cout << ele << " "; }
@@ -216,9 +230,59 @@ int main(int argc, char* argv[]) {
 
 	linreg.feedfwd();
 
+	/* this WORKS
+	auto ycheck= std::move( linreg.gety() );
+//	auto ycheck = linreg.gety();
+
+	std::vector<float> hycheck(SIZEDIM_Y,0.f);
+	cudaMemcpy(hycheck.data(), ycheck.get(), SIZEDIM_Y *sizeof(float),cudaMemcpyDeviceToHost);
+	for (auto ele : hycheck) { 
+		std::cout << ele << " " ; } std::cout << std::endl;
+*/
+
 	float result_linregcost = 0.f; 
 	result_linregcost = linreg.compute_costJ_L2norm();
 	
 	std::cout << " result of linReg cost : " << result_linregcost << std::endl;
+
+
+	// this single line of code WORKS
+//	linreg.grad_desc_step(0.01f, 128);
+
+	/* sanity check of 1 gradient descent  
+	 * this (block of code) WORKS
+	 * */
+/*	auto Theta1 = std::move( linreg.getTheta(1) );
+	auto b1 = std::move( linreg.getb(1) );
+	std::vector<float> hTheta1(d*K,0.f);
+	std::vector<float> hb1(K,0.f);
+	cudaMemcpy(hTheta1.data(), Theta1.get(), d*K*sizeof(float), cudaMemcpyDeviceToHost);
+	cudaMemcpy(hb1.data(), b1.get(), K*sizeof(float), cudaMemcpyDeviceToHost);
+	std::cout << " hTheta1 : " << hTheta1[0] << " " << std::endl;
+	std::cout << " hb1 : " << hb1[0] << " " << std::endl;
+*/
+
+	// this code WORKS
+	cudaEventRecord(starttiming,0);
+	linreg.grad_desc(1500,0.01f, 128);
+	cudaEventRecord(stoptiming,0);
+	cudaEventSynchronize(stoptiming);
+	cudaEventElapsedTime(&timeinterval, starttiming,stoptiming);
+	printf("Time to grad_desc 1500 iterations : %3.1f ms \n ", timeinterval);
+
+	/* sanity check of gradient descent  
+	 * this (block of code) WORKS
+	 * */
+	auto Theta1 = std::move( linreg.getTheta(1) );
+	auto b1 = std::move( linreg.getb(1) );
+	std::vector<float> hTheta1(d*K,0.f);
+	std::vector<float> hb1(K,0.f);
+	cudaMemcpy(hTheta1.data(), Theta1.get(), d*K*sizeof(float), cudaMemcpyDeviceToHost);
+	cudaMemcpy(hb1.data(), b1.get(), K*sizeof(float), cudaMemcpyDeviceToHost);
+	std::cout << " hTheta1 : " << hTheta1[0] << " " << std::endl;
+	std::cout << " hb1 : " << hb1[0] << " " << std::endl;
+
+
+
 
 }

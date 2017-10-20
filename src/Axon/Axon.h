@@ -152,6 +152,8 @@ class Axon
 		 * */
 		void move2al_from_ptr(std::shared_ptr<float> & ptr_sh_output_layer) ;
 
+		void move2alm1_from_ptr(std::shared_ptr<float> & ptr_sh_input_layer) ;
+
 		
 		// initialize layer l
 		/**
@@ -168,16 +170,23 @@ class Axon
 		 * */
 		std::vector<int> getSizeDims();
 		
-		// for getting Theta,b, and lth layer al, zl (after activation function applied)
+		// for getting (and moving back) Theta,b, and lth layer al, zl (after activation function applied)
 		std::unique_ptr<float[],deleterRR_struct> getTheta();
 		
 		std::unique_ptr<float[],deleterRR_struct> getb();
+
+		void move2Theta_from_ptr(std::unique_ptr<float[], deleterRR_struct> & ) ;
+
+		void move2b_from_ptr(std::unique_ptr<float[], deleterRR_struct> & ) ;
+
 
 		std::shared_ptr<float> getalm1();
 
 		std::shared_ptr<float> getal();
 
-
+		/* =============== "connect" the Axon =============== */
+		/* Once Axon has been setup, by the above, do the following to 
+		/* "connect through" the Axon */
 		/**
 		 *  @fn rightMul
 		 *  @class Axon_sh

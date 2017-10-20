@@ -27,11 +27,21 @@
  * 
  * */
 #include "Feedfwd.h"
-/*
-float computeJ_L2norm(const int m, 
-	std::shared_ptr<float> & yhat, std::unique_ptr<float[], deleterRR_struct> & y) {
+
+/* =============== CUDA kernel functions =============== */
+/** @fn setconstval_kernel
+ * 	@brief set a float array of length Lx all to values of const_val 
+ * 	@details cudaMemset only sets an array to 0 value; we want value of 1
+ * */
+__global__ void setconstval_kernel(const int Lx, const float const_val, float* A) {
+	int tid = threadIdx.x + blockDim.x * blockIdx.x; 
+	if (tid >= Lx) { 
+		return ; 
+	} 
+	A[tid] = const_val ; 	
 	
-}*/
+}
+
 
 /**	@class LinReg
  * 	@brief Linear Regression  
@@ -45,19 +55,26 @@ LinReg::LinReg(std::vector<int> & sizeDimsvec) :
 	for (int l=1; l<Lp1; l++)  // l= lth Axon
 	{
 		int s_lm1 = sizeDimsvec[l-1];
-		int s_l = sizeDimsvec[l-1];
+		int s_l = sizeDimsvec[l];
 		Axons.push_back( Axon(s_lm1,s_l) );
-	}
-	
+	}	
 }
 		
-// LinReg::LinReg(std::vector<Axon> & axons) : Axons(axons) {	}
-
 // member functions
-/*void LinReg::addAxon(Axon & axon) {
-	Axons.push_back(axon);
+
+// for loading (Theta,B) values from host
+void LinReg::load_from_hThetaBs(std::vector<std::vector<float>> & hThetaBs) {
+	const int Lp1 = sizeDimsvec.size(); // L = total number of Axons and so L+1 is total number of layers
+	assert (hThetaBs.size()/2 == (Lp1-1) );	// sanity check with input is correct
+	for (int l=1; l<Lp1; l++)  // l= lth Axon, l=1,2...L
+	{	
+		int idx_axon = l-1; // idx_axon=0,1,...L-1
+		int idx_Theta = idx_axon*2;
+		int idx_b 	  = idx_axon*2 + 1;
+		
+		Axons[idx_axon].load_from_hvec( hThetaBs[idx_Theta], hThetaBs[idx_b] );
+	}
 }
-*/
 
 // for loading output data y 
 /**
@@ -68,10 +85,12 @@ void LinReg::load_y_from_hvec(std::vector<float>& h_yvec) {
 	const int SIZE_Y= h_yvec.size(); 
 	
 	std::unique_ptr<float[], deleterRR_struct> d_y(new float[SIZE_Y], deleterRR_struct());
+	cudaMallocManaged((void **) &d_y, SIZE_Y*sizeof(float));
 	y = std::move(d_y);
 
-	cudaMallocManaged((void **) &y, SIZE_Y*sizeof(float));
-	
+	// this WORKS as well
+//	cudaMallocManaged((void **) &y, SIZE_Y*sizeof(float));
+	cudaMemcpy(y.get(), h_yvec.data(), SIZE_Y*sizeof(float),cudaMemcpyHostToDevice);	
 	
 }
 
@@ -99,15 +118,67 @@ void LinReg::load_X_from_hvec(std::vector<float>& h_Xvec, const int m)
 	for (int l=2;l<Lp1; l++) {
 		int idx_axon = l-1; // l=2,3...L, idx_axon=1,2,...L-1
 
+		// must do move for 1 command immediately below, because otherwise, error: initial value of reference 
+		// to non-const must be an lvalue
 		auto tempshptr = std::move( Axons[idx_axon-1].getal() ); // temporary shared pointer, move ownership to it temporarily
 		Axons[idx_axon].load_alm1_from_ptr( tempshptr );
 		Axons[idx_axon].init_al(m);
 		Axons[idx_axon-1].move2al_from_ptr( tempshptr); // move ownership back to al from temporary shared ptr
+
 	}
 
 	this->m=m; // store the number of training examples
 
 }
+
+
+/* =============== "getting" functions =============== */
+
+// for getting Theta,b, and lth layer of lth Axon al, zl (after activation function applied)
+
+std::unique_ptr<float[], deleterRR_struct> LinReg::getTheta(const int l) {
+	const int Lp1 = sizeDimsvec.size(); // L = total number of Axons and so L+1 is total number of layers
+	assert (l < Lp1);	// sanity check that l=1,2,...L
+	int idx_axon = l-1; // ind_axon=0,1,...L-1, 0-based counting
+	auto ptr = std::move( Axons[idx_axon].getTheta() );
+
+	return ptr;
+}
+
+std::unique_ptr<float[],deleterRR_struct> LinReg::getb(const int l) {
+	const int Lp1 = sizeDimsvec.size(); // L = total number of Axons and so L+1 is total number of layers
+	assert (l < Lp1);	// sanity check that l=1,2,...L
+	int idx_axon = l-1; // ind_axon=0,1,...L-1, 0-based counting
+	auto ptr = std::move( Axons[idx_axon].getb() );
+
+	return ptr;
+}
+
+std::shared_ptr<float> LinReg::getalm1(const int l) {
+	const int Lp1 = sizeDimsvec.size(); // L = total number of Axons and so L+1 is total number of layers
+	assert (l < Lp1);	// sanity check that l=1,2,...L
+	int idx_axon = l-1; // ind_axon=0,1,...L-1, 0-based counting
+	auto ptr = std::move( Axons[idx_axon].getalm1() );
+
+	return ptr;
+}
+
+
+std::shared_ptr<float> LinReg::getal(const int l) {
+	const int Lp1 = sizeDimsvec.size(); // L = total number of Axons and so L+1 is total number of layers
+	assert (l < Lp1);	// sanity check that l=1,2,...L
+	int idx_axon = l-1; // ind_axon=0,1,...L-1, 0-based counting
+	auto ptr = std::move( Axons[idx_axon].getal() );
+
+	return ptr;
+}
+
+std::unique_ptr<float[],deleterRR_struct> LinReg::gety() {
+	auto ptr = std::move(y);
+	return ptr;
+}
+
+/* ========== Feedforward ========== */
 
 void LinReg::feedfwd(int M_x) {
 	const int Lp1 = sizeDimsvec.size(); // L = total number of Axons and so L+1 is total number of layers
@@ -126,11 +197,7 @@ float LinReg::compute_costJ_L2norm() {
 //	auto y_data = std::move( y.get() ); // y data, output data
 	auto yhat = Axons[Lp1-2].getal(); // L+1 - 2 = L-1 which is the last axon, when counting from 0, 0,1,...L-1
 	
-	// custom deleter as a STRUCT for cublasHandle 
-	struct del_cublasHandle_struct {
-		void operator()(cublasHandle_t* ptr) { cublasDestroy(*ptr); }
-	};
-	
+
 	std::unique_ptr<cublasHandle_t,del_cublasHandle_struct> handle_u(
 		new cublasHandle_t);
 	cublasCreate(handle_u.get());	
@@ -165,12 +232,119 @@ float LinReg::compute_costJ_L2norm() {
 	
 	// return unique_ptr for y data ownership back
 //	y = std::move( y_data);
-	
+	// this WORKS
+//	std::cout << "J="<< costJ << std::endl;
+
+	Axons[Lp1-2].move2al_from_ptr(yhat);
 	return costJ;
 	
 }
 
+/**	@fn grad_desc_step
+ *	@param Mx - number of threads in a (single) thread block in x-direction
+ * 				this is needed for setconstval_kernel, to create a vector of 1's as 
+ * 				a numerical trick for the usual (mathematical) Kronecker delta function	 
+ * */
+void LinReg::grad_desc_step(  const float alpha_rate, int Mx)
+{
+	const int Lp1 = sizeDimsvec.size(); // L = total number of Axons and so L+1 is total number of layers
+	const int K = sizeDimsvec[Lp1-1]; // size dim. of the a^L output layer for axon L, i.e. \widehat{h}, the prediction
+	const int SIZE_Y= K * m; 
 
+	const int d = sizeDimsvec[Lp1-2];
+
+	std::unique_ptr<cublasHandle_t,del_cublasHandle_struct> handle_u(
+		new cublasHandle_t);
+	cublasCreate(handle_u.get());	
+
+	// in this scope, make res to store results from taking the difference
+	std::unique_ptr<float[], deleterRR_struct> res(new float[SIZE_Y], deleterRR_struct());
+	cudaMallocManaged((void **) &res, SIZE_Y*sizeof(float));
+	
+	auto yhat = Axons[Lp1-2].getal(); // L+1 - 2 = L-1 which is the last axon, when counting from 0, 0,1,...L-1
+	auto ThetaL = std::move( Axons[Lp1-2].getTheta() );
+	auto bL = std::move( Axons[Lp1-2].getb() );
+
+	
+	// residual \equiv Delta = (yhat - y) \in \text{Mat}_{\mathbb{R}}(m,K)
+	float a1 = 1.0f;
+	float bet = -1.0f; 
+	cublasSgeam(*handle_u.get(), 
+		CUBLAS_OP_N, CUBLAS_OP_N, m, K, &a1, 
+		yhat.get(), m, &bet, y.get(), m, 
+		res.get(), m );
+
+	auto a0 = Axons[Lp1-2].getalm1();
+	
+	a1 = 1.0f/ ((float) m);
+	bet = 0.f;
+	// \sum_{i=1}^m (a_i^{(0)})^j \Delta_i^p = \frac{ \partial J }{ \partial \Theta_j^p }
+	
+
+	const int SIZE_dTHETA = d*K;
+	std::unique_ptr<float[], deleterRR_struct> dTheta(new float[SIZE_dTHETA], deleterRR_struct());
+	cudaMallocManaged((void **) &dTheta, SIZE_dTHETA*sizeof(float));
+	
+	// dTheta = (1./m)*dTheta; dTheta \in \text{Mat}_{\mathbb{R}}(d,K)
+	cublasSgemm(*handle_u.get(),
+		CUBLAS_OP_T, CUBLAS_OP_N, d, K, m, &a1, a0.get(), m, res.get(), m , 
+			&bet, dTheta.get(), d);
+	
+	// dB = (1./m)*dB ; dB \in \mathbb{R}^K
+	const int SIZE_dB = K;
+	std::unique_ptr<float[], deleterRR_struct> dB(new float[SIZE_dB], deleterRR_struct());
+	cudaMallocManaged((void **) &dB, SIZE_dB*sizeof(float));
+
+	// create 1s array, array of 1s
+	const int SIZE_ONES = m;
+	std::unique_ptr<float[], deleterRR_struct> ones(new float[SIZE_ONES], deleterRR_struct());
+	cudaMallocManaged((void **) &ones, SIZE_ONES*sizeof(float));
+
+	/* ===== grid, thread block size dimensions ===== */
+		// M_x = number of threads in a (single) block in x-direction
+	const int Nx = (SIZE_ONES + Mx -1)/Mx;
+	setconstval_kernel<<<Nx,Mx>>>(m,1.0f, ones.get() );
+ 
+	
+	cublasSgemv(*handle_u.get(), CUBLAS_OP_T,m, K, 
+		&a1, res.get(), m, ones.get() , 1, &bet, dB.get(), 1);   
+	
+		
+	bet = 1.0f; 
+	a1 = -1.0f * alpha_rate; 
+
+	// actual gradient descent iteration step
+	cublasSaxpy( *handle_u.get(), SIZE_dTHETA, &a1, dTheta.get(), 1, ThetaL.get(), 1);
+	cublasSaxpy( *handle_u.get(), SIZE_dB, &a1, dB.get(), 1, bL.get(), 1);
+
+
+
+	// return ownership of yhat,a0 back to the Feed-forward "network"
+	Axons[Lp1-2].move2al_from_ptr(yhat);
+	Axons[Lp1-2].move2alm1_from_ptr(a0);
+	Axons[Lp1-2].move2Theta_from_ptr(ThetaL);
+	Axons[Lp1-2].move2b_from_ptr(bL);
+
+}
+
+/**	@fn grad_desc
+ *	@param Mx - number of threads in a (single) thread block in x-direction
+ * 				this is needed in the following:
+ * 				in feedfwd, for addb, because we're doing "row-wise" addition of a row vector
+ * 					across a matrix, 
+ * 				and 
+ * 				in grad_desc_step, for setconstval_kernel, to create a vector of 1's as 
+ * 				a numerical trick for the usual (mathematical) Kronecker delta function	 
+ * */
+void LinReg::grad_desc(  const int iterations, const float alpha_rate, int Mx)
+{
+	for (int iter=0; iter < iterations; iter++) 
+	{
+		feedfwd(Mx);
+		grad_desc_step( alpha_rate, Mx);
+		
+	}
+}
 
 // destructor
 LinReg::~LinReg() {}
