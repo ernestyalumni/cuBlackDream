@@ -352,13 +352,7 @@ std::vector<float> h_flatten_colmaj(std::vector<std::vector<float>> &A)
 	const int m = A.size(); // number of rows, m 
 	const int n = A[0].size(); // number of columns, n
 	std::vector<float> A_out;
-/*	for (int i = 0 ; i< m; i++) 	// i is the ith row of the matrix A
-	{
-		for (auto row : A) { 
-			A_out.push_back( row[i] );
-		}
-	}
-*/	
+
 	for (int j=0;j<n;j++) {
 		for (int i=0;i<m;i++) {
 			A_out.push_back( A[i][j] );
@@ -369,5 +363,41 @@ std::vector<float> h_flatten_colmaj(std::vector<std::vector<float>> &A)
 	
 }
 
-	
+/* =============== from NumPy array binary -> std::vector<float> flattened =============== */
+/* =============== from row-major ordering -> column-major ordering ==================== */
+/** 
+ * 	@fn npy2fvec
+ * 	@param m - const int m, number of rows
+ *  @param n - const int n, number of columns
+ * */
+std::vector<float> npy2fvec( std::string & filename, const int m, const int n) 
+{	
+	std::ifstream ifs_filein(filename, std::ios::binary);
+	if (!ifs_filein.is_open()) {
+		std::cout << "failed to open : " << filename << std::endl; 
+	} else {
+		std::vector<float> A;
+
+	float x;
+	while (ifs_filein.read(reinterpret_cast<char*>(&x), sizeof(float))) {
+		/* &x gets the address of the first byte of memory used to store the object
+		 * reinterpret_cast<char*> treats that memory as bytes, threat a float as a sequence of bytes
+		 * */
+		A.push_back(x);
+	}
+
+
+	/* ===== Row-major ordering -> Column-major ordering ===== */ 
+	// Assuming row-major ordering for the original flattened matrix A 
+	std::vector<float> A_out;
+	for (int j=0; j<n;j++) {
+		for (int i=0; i<m;i++) {
+			A_out.push_back( A[i*n+j] );
+		}
+	}
+	return A_out;
+	}	// END of else, after sanity check that file exists
+}
+
+
 

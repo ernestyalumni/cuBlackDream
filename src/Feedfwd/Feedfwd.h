@@ -124,6 +124,15 @@ class LinReg
 		 * */
 		void grad_desc_step(const float alpha_rate=0.05f, int Mx=128);
 		
+		/**	@fn grad_desc
+		 *	@param Mx - number of threads in a (single) thread block in x-direction
+		 * 				this is needed in the following:
+		 * 				in feedfwd, for addb, because we're doing "row-wise" addition of a row vector
+		 * 					across a matrix, 
+		 * 				and 
+		 * 				in grad_desc_step, for setconstval_kernel, to create a vector of 1's as 
+		 * 				a numerical trick for the usual (mathematical) Kronecker delta function	 
+		 * */
 		void grad_desc(const int iterations=1500, const float alpha_rate=0.05f, int Mx=128);
 		
 		

@@ -165,6 +165,15 @@ std::vector<std::vector<std::string>> csv2strvecIter(std::string & filename);
  * */
 std::vector<float> h_flatten_colmaj(std::vector<std::vector<float>> &); 
  
+/* =============== from NumPy array binary -> std::vector<float> flattened =============== */
+/* =============== from row-major ordering -> column-major ordering ==================== */
+/** 
+ * 	@fn npy2fvec
+ * 	@param m - const int m, number of rows
+ *  @param n - const int n, number of columns
+ * */
+std::vector<float> npy2fvec( std::string & , const int m, const int n);
+
 
 
 #endif // __FILEIO_H__

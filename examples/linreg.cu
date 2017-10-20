@@ -283,6 +283,90 @@ int main(int argc, char* argv[]) {
 	std::cout << " hb1 : " << hb1[0] << " " << std::endl;
 
 
+	/* =============== multi-dim. linear regression case =============== */
 
+	/* =============== ex1data2.txt =============== */ 
+	std::string filename_ex1data2 = "../data/ex1data2.txt";
+	
+	auto Xydata_ex1data2 = csv2fvec(filename_ex1data2); 
+	
+	std::vector<std::vector<float>> X_ex1data2; // choose this type, than std::vector<float> so to generalize to multi-dim. case
+	std::vector<std::vector<float>> y_ex1data2;
+	for (auto row : Xydata_ex1data2) { 
+		std::vector<float> X_i = { row[0], row[1] }; // first "column" is input data X \in \mathbb{R}^m, d=2 features
+		std::vector<float> y_i = { row[2] }; // second "column" is output data y \in \mathbb{R}^m, K=1 dim.
+
+		X_ex1data2.push_back(X_i);	
+		y_ex1data2.push_back(y_i);	
+	}
+	
+	// notice that both X_ex1data2, y_ex1data2 are row-major ordered.  We want column-major ordering for CUBLAS
+	
+	d = X_ex1data2[0].size(); // number of features
+	K = y_ex1data2[0].size(); // dim. of output
+	m = X_ex1data2.size(); 	// m = number of training examples
+
+	std::cout << std::endl << " multi-dim. linear reg case : " << std::endl;
+	std::cout << " d : " << d << std::endl;
+	std::cout << " K : " << K << std::endl;
+	std::cout << " m : " << m << std::endl;
+
+	// preprocess X_ex1data2
+	// flatten X_ex1data2 into column-major ordering 
+	std::vector<float> X_ex1data2out;
+	for (int j=0; j<d; j++){ 
+		for (int i=0; i<m; i++) {
+			X_ex1data2out.push_back( (X_ex1data2[i])[j] ); 
+		}
+	}
+	std::cout << std::endl << " X_ex1data2out.size() : " << X_ex1data2out.size() << std::endl;
+
+	std::vector<float> X_ex1data2_colmaj = h_flatten_colmaj( X_ex1data2 );
+	auto y_ex1data2_colmaj = h_flatten_colmaj( y_ex1data2 ); 
+
+	/* ========== Feature Normalize in Python, then numpy.array.tofile -> std::vector<float> ========== */
+	std::string filename_Xex1data2_npy = "../data/Xex1data2.npy";
+	auto X_ex1data2_bin = npy2fvec(filename_Xex1data2_npy, m, d);
+
+
+	// Initialize fitting parameters with 0
+	std::vector<float> h_Theta_multi(d*K, 0.f);
+	std::vector<float> h_b_multi(K,0.f );
+	std::vector<std::vector<float>> h_Thetab_multi;
+	h_Thetab_multi.push_back(h_Theta_multi);
+	h_Thetab_multi.push_back(h_b_multi);
+
+
+	std::vector<int> FFsizeDims_multi = { d,K }; 
+
+	LinReg multilinreg( FFsizeDims_multi );
+
+	multilinreg.load_from_hThetaBs(h_Thetab_multi);
+	multilinreg.load_y_from_hvec(y_ex1data2_colmaj);
+	multilinreg.load_X_from_hvec(X_ex1data2_bin, m );
+
+	cudaEventRecord(starttiming,0);
+	multilinreg.grad_desc(400,0.01f, 128);
+	cudaEventRecord(stoptiming,0);
+	cudaEventSynchronize(stoptiming);
+	cudaEventElapsedTime(&timeinterval, starttiming,stoptiming);
+	printf("Time to multi-dim. grad_desc 400 iterations : %3.1f ms \n ", timeinterval);
+
+	multilinreg.grad_desc(10000,0.001f, 128);
+
+
+	/* sanity check of gradient descent  
+	 * this (block of code) WORKS
+	 * */
+	auto Theta_multi = std::move( multilinreg.getTheta(1) );
+	auto b_multi = std::move( multilinreg.getb(1) );
+	std::vector<float> hTheta_multi(d*K,0.f);
+	std::vector<float> hb_multi(K,0.f);
+	cudaMemcpy(hTheta_multi.data(), Theta_multi.get(), d*K*sizeof(float), cudaMemcpyDeviceToHost);
+	cudaMemcpy(hb_multi.data(), b_multi.get(), K*sizeof(float), cudaMemcpyDeviceToHost);
+	std::cout << " hTheta (multi) : " << hTheta_multi[0] << " " << hTheta_multi[1] << std::endl;
+	std::cout << " hb (multi) : " << hb_multi[0] << " " << std::endl;
+
+	
 
 }
