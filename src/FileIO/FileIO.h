@@ -103,13 +103,14 @@ class fCSVRow
 // operator overload >> for fCSVRow, specifically
 std::istream& operator>>(std::istream& str, fCSVRow& data); 
 
+
+/* ==================== .csv -> std::vector<std::vector<float>> ==================== */
 /**
  * 	@fn csv2fvec
  *  @brief .csv filename to vector of vectors of float
  * 			must assume NO HEADERS
  */
 std::vector<std::vector<float>> csv2fvec(std::string & filename); 
-
 
 std::vector<std::vector<float>> csv2fvec_hdr(std::string & filename);
 

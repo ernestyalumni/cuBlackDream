@@ -3,7 +3,6 @@
  * @brief  : Linear Regression with CUDA C++14, CUBLAS, CUDA Unified Memory Management
  * @details :  class CSVRow
  * 
- * 
  * @author : Ernest Yeung <ernestyalumni@gmail.com>
  * @date   : 20171014  
  * @ref    : Coursera, Andrew Ng, Intro. to Machine Learning, ex1, Exercises 1 of Week 2
@@ -25,11 +24,11 @@
 /* 
  * COMPILATION TIP
  * nvcc -std=c++14 -lcublas ../src/FileIO/FileIO.cpp ../src/Axon/Axon.o ../src/smartptr/smartptr.cu ../src/Feedfwd/Feedfwd.cu linreg.cu -o linreg.exe
- * 
+ * nvcc -arch='sm_52' -std=c++14 -lcublas ../src/Feedfwd/Axon.o ../src/Feedfwd/activationf.o ../src/Feedfwd/Feedfwd.o ../src/FileIO/FileIO.cpp ../src/smartptr/smartptr.cu linreg.cu -o linreg.exe
  * */
  
 #include "../src/FileIO/FileIO.h"			// csv2fvec
-#include "../src/Axon/Axon.h"				// Axon_sh
+#include "../src/Axon/Axon.h"				// Axon
 #include "../src/smartptr/smartptr.h"		// smartptr::RRModule
 #include "../src/Feedfwd/Feedfwd.h"			// LinReg
 

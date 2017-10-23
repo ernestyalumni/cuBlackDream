@@ -24,7 +24,7 @@
 /* 
  * COMPILATION TIP
  * nvcc -std=c++14 -lcublas -dc Feedfwd.cu -o Feedfwd.o
- * 
+ * nvcc -std=c++14 -arch='sm_52' -dc ../Axon/Axon.cu ../Axon/activationf.cu Feedfwd.cu
  * */
 #include "Feedfwd.h"
 
@@ -42,6 +42,40 @@ __global__ void setconstval_kernel(const int Lx, const float const_val, float* A
 	
 }
 
+__global__ void costJ_xent_kernel(const int Lx, const float* y, const float* yhat, float* s) {
+	int kx = threadIdx.x + blockDim.x*blockIdx.x;
+	if (kx >= Lx) { return; } // more than enough threads were launched to calculate the Lx elements
+	
+	/* this for loop ensure that, if in case SIZE > gridDimx.x*blockDim.x (or even if  
+	 * 	SIZE >> gridDimx.x*blockDim.x so we have more values to compute than threads on a GPU!)  
+	 * that everything gets computed) */
+	for (int tid=kx; kx < Lx; kx += gridDim.x*blockDim.x ) { 
+		float y_val = y[tid];
+		float yhat_val = yhat[tid]; 
+		float s_val = - y_val * logf( yhat_val) - (1.f - y_val) * logf( 1.f - yhat_val);
+		s[tid] = s_val;
+	}
+}
+
+
+__global__ void Dxent_kernel(const int Lx, const float* y, const float* yhat, const float *Dyhat, float* Ds) {
+	int kx = threadIdx.x + blockDim.x*blockIdx.x;
+	if (kx >= Lx) { return; } // more than enough threads were launched to calculate the Lx elements
+	
+	/* this for loop ensure that, if in case SIZE > gridDimx.x*blockDim.x (or even if  
+	 * 	SIZE >> gridDimx.x*blockDim.x so we have more values to compute than threads on a GPU!)  
+	 * that everything gets computed) */
+	for (int tid=kx; kx < Lx; kx += gridDim.x*blockDim.x ) { 
+		float y_val = y[tid];
+		float yhat_val = yhat[tid]; 
+//		float Dyhat_val = 
+//		float s_val = - y_val * logf( yhat_val) - (1.f - y_val) * logf( 1.f - yhat_val);
+//		s[tid] = s_val;
+	}
+}
+
+
+/* ==================== Linear Regression class ==================== */
 
 /**	@class LinReg
  * 	@brief Linear Regression  
@@ -128,7 +162,6 @@ void LinReg::load_X_from_hvec(std::vector<float>& h_Xvec, const int m)
 	}
 
 	this->m=m; // store the number of training examples
-
 }
 
 
@@ -305,7 +338,7 @@ void LinReg::grad_desc_step(  const float alpha_rate, int Mx)
 	const int Nx = (SIZE_ONES + Mx -1)/Mx;
 	setconstval_kernel<<<Nx,Mx>>>(m,1.0f, ones.get() );
  
-	
+	// this is a clever way to do summation
 	cublasSgemv(*handle_u.get(), CUBLAS_OP_T,m, K, 
 		&a1, res.get(), m, ones.get() , 1, &bet, dB.get(), 1);   
 	
@@ -348,3 +381,221 @@ void LinReg::grad_desc(  const int iterations, const float alpha_rate, int Mx)
 
 // destructor
 LinReg::~LinReg() {}
+
+/* ==================== END of Linear Regression class ==================== */
+
+/* ==================== Logistic Regression class ==================== */
+
+/**	@class LogisticReg
+ * 	@brief Logistic Regression  
+ * */
+ 
+ // Constructors
+LogisticReg::LogisticReg(std::vector<int> & sizeDimsvec, std::vector<int> & actfs_intvec) : 
+	sizeDimsvec(sizeDimsvec), actfs_intvec(actfs_intvec)
+{
+	const int Lp1 = sizeDimsvec.size(); // L=total number of Axons and so L+1 is total number of layers
+	for (int l=1; l<Lp1; l++)  // l= lth Axon
+	{
+		int s_lm1 = sizeDimsvec[l-1];
+		int s_l = sizeDimsvec[l];
+		int idx_actf = actfs_intvec[l-1];
+		Axons.push_back( Axon_act(s_lm1,s_l,idx_actf) );
+	}	
+}
+		
+// member functions
+
+// for loading (Theta,B) values from host
+void LogisticReg::load_from_hThetaBs(std::vector<std::vector<float>> & hThetaBs) {
+	const int Lp1 = sizeDimsvec.size(); // L = total number of Axons and so L+1 is total number of layers
+	assert (hThetaBs.size()/2 == (Lp1-1) );	// sanity check with input is correct
+	for (int l=1; l<Lp1; l++)  // l= lth Axon, l=1,2...L
+	{	
+		int idx_axon = l-1; // idx_axon=0,1,...L-1
+		int idx_Theta = idx_axon*2;
+		int idx_b 	  = idx_axon*2 + 1;
+		
+		Axons[idx_axon].load_from_hvec( hThetaBs[idx_Theta], hThetaBs[idx_b] );
+	}
+}
+
+// for loading output data y 
+/**
+ * 	@fn load_y_from_hvec 
+ * 	@brief load from host, y output data, as a std::vector<float>, column-major ordered
+ * */		
+void LogisticReg::load_y_from_hvec(std::vector<float>& h_yvec) {
+	const int SIZE_Y= h_yvec.size(); 
+	
+	std::unique_ptr<float[], deleterRR_struct> d_y(new float[SIZE_Y], deleterRR_struct());
+	cudaMallocManaged((void **) &d_y, SIZE_Y*sizeof(float));
+	y = std::move(d_y);
+
+	// this WORKS as well
+//	cudaMallocManaged((void **) &y, SIZE_Y*sizeof(float));
+	cudaMemcpy(y.get(), h_yvec.data(), SIZE_Y*sizeof(float),cudaMemcpyHostToDevice);	
+	
+}
+
+// for loading input data X into layer 0, a0, input layer
+/**
+ * 	@fn load_X_from_hvec
+ * 	@brief load from host, X input data, as a std::vector<float>
+ * 			Since we're then given m, number of examples (in dataset), 
+ * 			load_X_from_hvec will then and go ahead and point (using std::shared_ptr)
+ * 			output layer l-1 of Axon l-1 to input layer l-1 of Axon l
+ *  @param const int m - number of examples
+ * */		
+void LogisticReg::load_X_from_hvec(std::vector<float>& h_Xvec, const int m) 
+{
+	const int SIZE_X = h_Xvec.size();
+	const int d = sizeDimsvec[0];
+	assert( SIZE_X == m*d); // check the total size dimensions is correct for "input layer" 
+	
+	// first Axon
+	Axons[0].load_from_hXvec( h_Xvec, m);
+	Axons[0].init_zlal(m);
+
+	const int Lp1 = sizeDimsvec.size(); // L=total number of Axons and so L+1 is total number of layers
+	
+	for (int l=2;l<Lp1; l++) {
+		int idx_axon = l-1; // l=2,3...L, idx_axon=1,2,...L-1
+
+		// must do move for 1 command immediately below, because otherwise, error: initial value of reference 
+		// to non-const must be an lvalue
+		auto tempshptr = std::move( Axons[idx_axon-1].getal() ); // temporary shared pointer, move ownership to it temporarily
+		Axons[idx_axon].load_alm1_from_ptr( tempshptr );
+		Axons[idx_axon].init_zlal(m);
+		Axons[idx_axon-1].move2al_from_ptr( tempshptr); // move ownership back to al from temporary shared ptr
+
+	}
+
+	this->m=m; // store the number of training examples
+
+}
+
+
+/* =============== "getting" functions =============== */
+
+// for getting Theta,b, and lth layer of lth Axon al, zl (after activation function applied)
+
+std::unique_ptr<float[], deleterRR_struct> LogisticReg::getTheta(const int l) {
+	const int Lp1 = sizeDimsvec.size(); // L = total number of Axons and so L+1 is total number of layers
+	assert (l < Lp1);	// sanity check that l=1,2,...L
+	int idx_axon = l-1; // ind_axon=0,1,...L-1, 0-based counting
+	auto ptr = std::move( Axons[idx_axon].getTheta() );
+
+	return ptr;
+}
+
+std::unique_ptr<float[],deleterRR_struct> LogisticReg::getb(const int l) {
+	const int Lp1 = sizeDimsvec.size(); // L = total number of Axons and so L+1 is total number of layers
+	assert (l < Lp1);	// sanity check that l=1,2,...L
+	int idx_axon = l-1; // ind_axon=0,1,...L-1, 0-based counting
+	auto ptr = std::move( Axons[idx_axon].getb() );
+
+	return ptr;
+}
+
+std::shared_ptr<float> LogisticReg::getalm1(const int l) {
+	const int Lp1 = sizeDimsvec.size(); // L = total number of Axons and so L+1 is total number of layers
+	assert (l < Lp1);	// sanity check that l=1,2,...L
+	int idx_axon = l-1; // ind_axon=0,1,...L-1, 0-based counting
+	auto ptr = std::move( Axons[idx_axon].getalm1() );
+
+	return ptr;
+}
+
+
+std::shared_ptr<float> LogisticReg::getal(const int l) {
+	const int Lp1 = sizeDimsvec.size(); // L = total number of Axons and so L+1 is total number of layers
+	assert (l < Lp1);	// sanity check that l=1,2,...L
+	int idx_axon = l-1; // ind_axon=0,1,...L-1, 0-based counting
+	auto ptr = std::move( Axons[idx_axon].getal() );
+
+	return ptr;
+}
+
+std::unique_ptr<float[],deleterRR_struct> LogisticReg::gety() {
+	auto ptr = std::move(y);
+	return ptr;
+}
+
+
+/* ========== Feedforward ========== */
+/**
+ *  @fn feedfwd
+ * 	@brief Feedforward
+ * 	@param Mx, int Mx=128, default to 128 threads in a single thread block
+ * 		when adding the bias to the output layer of an axon, choose the number of threads in a single 
+ * */
+
+void LogisticReg::feedfwd(int M_x) {
+	const int Lp1 = sizeDimsvec.size(); // L = total number of Axons and so L+1 is total number of layers
+
+
+	for (int l=1; l < Lp1;l++) {
+		int idx_axon = l-1; // l=1,2,...L axons, idx_axon = 0,1,...L-1 (0-based counting for C/C++/Python
+		Axons[idx_axon].rightMul();	// a^{l-1} \Theta = (a^{l-1}_i)^{j_{l-1}} \Theta_{j_{l-1}}^{j_l} =: z^l 
+		Axons[idx_axon].addb(M_x,0);	// z^l +b = (z^l_i)^{j_l} + (b^{(l)})^{j_l} =: z^l
+
+		/**
+		 * @note EY : 20171023 remember to fix the calculation of (thread) blocks on a grid to allow for 
+		 * arrays of size >> total number of threads allowed on the grid
+		 * */
+		Axons[idx_axon].actf(M_x,0); 
+	}
+}
+
+/* ========== Cost functional J ========== */
+
+float LogisticReg::compute_costJ_xent(const int Mx) {
+	const int Lp1 = sizeDimsvec.size(); // L = total number of Axons and so L+1 is total number of layers
+	const int K = sizeDimsvec[Lp1-1]; // size dim. of the a^L output layer for axon L, i.e. \widehat{h}, the prediction
+	const int SIZE_Y= K * m; 
+
+	auto yhat = Axons[Lp1-2].getal(); // L+1 - 2 = L-1 which is the last axon, when counting from 0, 0,1,...L-1
+
+
+	// in this scope, make res to store results from taking the so-called cross-entropy function, element-wise
+	std::unique_ptr<float[], deleterRR_struct> entropys(new float[SIZE_Y], deleterRR_struct());
+	cudaMallocManaged((void **) &entropys, SIZE_Y*sizeof(float));
+
+	/* ===== grid, thread block size dimensions ===== */
+	// M_x = number of threads in a (single) block in x-direction
+	/** 
+	 * @note EY : 20171023 I will need to change this calculation of 
+	 * N_x = number of (thread) blocks on a grid in x-direction
+	 * so to allow for SIZE_Y >> max. allowed gridDimx.x*blockDim.x i.e. maximum allowed threads to launch on a grid
+	 * */
+	const int Nx = (SIZE_Y + Mx -1)/Mx;
+	costJ_xent_kernel<<<Nx,Mx>>>( SIZE_Y, y.get(), yhat.get(), entropys.get() );
+
+	// ========== now do the summation ========== 
+
+	// create 1s array, array of 1s
+	const int SIZE_ONES = SIZE_Y;
+	std::unique_ptr<float[], deleterRR_struct> ones(new float[SIZE_ONES], deleterRR_struct());
+	cudaMallocManaged((void **) &ones, SIZE_ONES*sizeof(float));
+
+	/* ===== grid, thread block size dimensions ===== */
+		// M_x = number of threads in a (single) block in x-direction
+	setconstval_kernel<<<Nx,Mx>>>(m,1.0f, ones.get() );
+ 
+	// this is a clever way to do summation
+	std::unique_ptr<cublasHandle_t,del_cublasHandle_struct> handle_u(
+		new cublasHandle_t);
+	cublasCreate(handle_u.get());	
+
+	float costJ = 0.f;
+	cublasSdot( *handle_u.get(), SIZE_Y, entropys.get(), 1, ones.get(), 1, &costJ);
+	costJ = costJ/((float) m);
+
+	Axons[Lp1-2].move2al_from_ptr(yhat);
+	return costJ;
+	
+} 
+
+// destructor
+LogisticReg::~LogisticReg() {}

@@ -1,9 +1,8 @@
 /**
  * @file   : Axon.cu
- * @brief  : Smart pointers content/source file in CUDA C++14, 
+ * @brief  : Axon content/source file in CUDA C++14, 
  * @author : Ernest Yeung <ernestyalumni@gmail.com>
  * @date   : 20171007  
- * @ref    :  
  * 
  * If you find this code useful, feel free to donate directly and easily at this direct PayPal link: 
  * 
@@ -27,11 +26,7 @@
  * 
  * */
 #include "Axon.h"
-
-/**
- *  @class Axon_u
- *  @brief Axon, using unique pointers, contains weights matrix (Theta), and bias b between 2 layers
- */
+#include "activationf.h"
 
 /* =============== CUDA kernel functions =============== */
 /** @fn addb
@@ -50,7 +45,6 @@ __global__ void addb_kernel(const int m, const int s_l, float* a_l,const float* 
 	int k = threadIdx.x + blockDim.x * blockIdx.x ; // k is global thread index 
 
 	// assume COLUMN-major ordering 
-//	int i = k % m; 	// this the ith index in a matrix a_l(i,j)
 	int j = k/m; 	// this is the jth index in matrix a_l(i,j)
 
 	__shared__ float sh_bj[1]; // shared bj, jth component of b
@@ -71,8 +65,54 @@ __global__ void addb_kernel(const int m, const int s_l, float* a_l,const float* 
 	__syncthreads();
 	
 	a_l[k] = a_l[k] + sh_bj[0];
-	
 }
+
+
+/* =============== activation function =============== */
+
+// general activation functions to plug in these function pointers  
+
+__global__ void general_activation_function_kernel(const int SIZE,float* z,const int idx_actf) {
+	int k_x = threadIdx.x + blockDim.x * blockIdx.x;  
+	if (k_x >= SIZE) { return; }
+	
+	/* this for loop ensure that, if in case SIZE > gridDimx.x*blockDim.x (or even if  
+	 * 	SIZE >> gridDimx.x*blockDim.x so we have more values to compute than threads on a GPU!)  
+	 * that everything gets computed) */
+	for (int tid=k_x; k_x < SIZE; k_x += gridDim.x*blockDim.x ) { 
+		float a_val = 0.f;
+		a_val = z[tid];
+	
+//		a_val = (d_activat_fs[idx_actf])(a_val);
+		z[tid] = a_val;
+	}
+}
+
+// the derivative of an activation function, denoted with D
+__global__ void general_Dactivation_function_kernel(const int SIZE,const float* z,float* d_a,const int idx_actf)  {
+	int k_x = threadIdx.x + blockDim.x * blockIdx.x;  
+	if (k_x >= SIZE) { return; }
+	
+	/* this for loop ensure that, if in case SIZE > gridDimx.x*blockDim.x (or even if  
+	 * 	SIZE >> gridDimx.x*blockDim.x so we have more values to compute than threads on a GPU!)  
+	 * that everything gets computed) */
+	for (int tid=k_x; k_x < SIZE; k_x += gridDim.x*blockDim.x ) { 
+		float a_val = 0.f;
+		a_val = z[tid];
+	
+//		a_val = (D_activat_fs[idx_actf])(a_val);
+		d_a[tid] = a_val;
+	}
+}
+
+
+/* =============== END of activation functions =============== */
+
+
+
+/* ==================== Axon classes ==================== */
+
+/* =============== Axon class; no activation =============== */
 
 
 // constructor 
@@ -88,7 +128,7 @@ Axon::Axon(const int s_lm1,const int s_l) : s_lm1(s_lm1), s_l(s_l)  {
 	b = std::move(d_b);
 }
 
-// Copy Constructor
+// Move Constructor
 /**
  *  @fn Axon(const Axon& old_axon)
  *  @brief copy constructor for Axon class
@@ -103,7 +143,6 @@ Axon::Axon(Axon&& old_axon) : Theta(std::move(old_axon.Theta)), b(std::move(old_
 	m = old_axon.m;
 	
 	l = old_axon.l; // lth layer
-	//del_cublasHandle_struct = old_axon.del_cublasHandle_struct;
 	
 	alm1 = std::move( old_axon.alm1 );
 	al = std::move( old_axon.al );	
@@ -166,9 +205,7 @@ void Axon::load_from_hXvec(std::vector<float>& h_X, const int m) {
 	} else {
 		cudaMemcpy(alm1.get(), h_X.data(), SIZE_S_LM1 *sizeof(float),cudaMemcpyHostToDevice);
 	}
-
 	this->m = m;
-
 }
 
 	/** We're not transferring ownership, so we don't use std::move
@@ -284,7 +321,13 @@ void Axon::rightMul() {
 }
 
 	/* ========== Add bias ========== */
-void Axon::addb(const int M_x) {
+/** 
+ * 	@fn Axon::addb
+ * 	@param const int N_x = number of (thread) blocks on grid in x-direction
+ *  @param const int M_x = number of threads in a (single, thread) block in x-direction
+ * 	@details N_x, M_x determined before by feedfwd class
+ * */
+void Axon::addb(const int M_x,const int N_x ) {
 	auto ptr_al = std::move( al );
 	auto ptr_b  = std::move(b);
 
@@ -292,7 +335,9 @@ void Axon::addb(const int M_x) {
 	const int SIZEDIM_A_L = m * s_l; // m * s_l = (number of examples)*(size dim. or no. of nodes of lth layer)
 	
 	// M_x = number of threads in a (single) block in x-direction
-	const int Nx = (SIZEDIM_A_L + M_x -1)/M_x;
+	const int Nx_calc = (SIZEDIM_A_L + M_x -1)/M_x;
+
+	int Nx = max( Nx_calc, N_x);
 
 	addb_kernel<<<Nx,M_x>>>(m,s_l,ptr_al.get(),ptr_b.get() );
 
@@ -306,7 +351,165 @@ void Axon::addb(const int M_x) {
 Axon::~Axon() {}
 
 
+/* =============== Axon class; with activation =============== */
+// Constructor
+Axon_act::Axon_act(const int s_lm1,const int s_l, const int idx_actf) : 
+		Axon(s_lm1, s_l), idx_actf(idx_actf)   {
+}
 
+// Move Constructor
+/**
+ *  @fn Axon_act(const Axon& old_axon)
+ *  @brief copy constructor for Axon class
+ * 	@ref http://www.geeksforgeeks.org/copy-constructor-in-cpp/
+ * https://stackoverflow.com/questions/16030081/copy-constructor-for-a-class-with-unique-ptr
+ * https://en.wikipedia.org/wiki/C%2B%2B11#Rvalue_references_and_move_constructors
+ * https://msdn.microsoft.com/en-us/library/s16xw1a8.aspx
+ * */
+Axon_act::Axon_act(Axon_act&& old_axon) 
+	: 	Axon(std::move(old_axon)), // error: function "Axon::Axon(const Axon &)" (declared implicitly) cannot be referenced -- it is a deleted function
+
+	 zl(std::move(old_axon.zl))
+{
+	idx_actf = old_axon.idx_actf;
+}
+
+
+// operator overload assignment = 
+Axon_act & Axon_act::operator=(Axon_act && old_axon) 
+//: Axon(old_axon) 
+	{
+
+	idx_actf = old_axon.idx_actf;
+
+	zl = std::move( old_axon.zl );
+
+	return *this;
+}
+
+// initialize layer l
+/**
+ * 	@fn init_zlal 
+ * 	@brief initialize layer l
+ *  @param const int m - number of examples
+ * */
+void Axon_act::init_zlal(const int m) { 
+	const int SIZE_S_L = m * s_l;
+
+	std::shared_ptr<float> d_al(new float[SIZE_S_L], deleterRR_struct() ); 	// d_al; al on device GPU
+	cudaMallocManaged((void **) &d_al,SIZE_S_L*sizeof(float));
+	al = std::move(d_al);
+	cudaMemset(al.get(), 0.f, SIZE_S_L*sizeof(float));
+
+	std::unique_ptr<float[], deleterRR_struct> d_zl(new float[SIZE_S_L], deleterRR_struct());
+	cudaMallocManaged((void **) &d_zl,SIZE_S_L*sizeof(float));
+	zl = std::move(d_zl);
+
+	this->m = m;
+}
+
+// for getting Theta,b, and lth layer al, zl (after activation function applied)
+
+
+std::unique_ptr<float[],deleterRR_struct> Axon_act::getzl() {
+	auto ptr = std::move(zl);
+	return ptr;
+}
+
+
+
+/* =============== "connect" the Axon =============== */
+/* Once Axon has been setup, by the above, do the following to 
+/* "connect through" the Axon */
+/**
+ *  @fn rightMul
+ *  @class Axon_act
+ * 	@brief right multiplication
+ * */
+void Axon_act::rightMul() {
+	float a1 = 1.0f;
+	float bet = 0.f;
+	
+	std::unique_ptr<cublasHandle_t,del_cublasHandle_struct> handle_u(
+		new cublasHandle_t);
+	cublasCreate(handle_u.get());
+	
+	auto A_u = std::move( alm1 );
+	auto B_u = std::move( Theta );
+	auto C_u = std::move( zl );
+	
+	cublasSgemm(*handle_u.get(),CUBLAS_OP_N,CUBLAS_OP_N,m,s_l,s_lm1,&a1,A_u.get(),m,B_u.get(),s_lm1,&bet,C_u.get(),m);
+
+	cudaDeviceSynchronize();
+
+	alm1 = std::move(A_u);
+	Theta = std::move(B_u);
+	zl = std::move(C_u);
+}
+
+
+	/* ========== Add bias ========== */
+/** 
+ * 	@fn Axon_act::addb
+ * 	@param const int N_x = number of (thread) blocks on grid in x-direction
+ *  @param const int M_x = number of threads in a (single, thread) block in x-direction
+ * 	@details N_x, M_x determined before by feedfwd class
+ * */
+void Axon_act::addb(const int M_x, const int N_x) {
+	auto ptr_zl = std::move( zl );
+	auto ptr_b  = std::move(b);
+
+	/* ===== grid, thread block size dimensions ===== */
+	const int SIZEDIM_Z_L = m * s_l; // m * s_l = (number of examples)*(size dim. or no. of nodes of lth layer)
+	
+	// M_x = number of threads in a (single) block in x-direction
+	const int Nx_calc = (SIZEDIM_Z_L + M_x -1)/M_x;
+
+	int Nx = max(N_x, Nx_calc);
+	
+	addb_kernel<<<Nx,M_x>>>(m,s_l,ptr_zl.get(),ptr_b.get() );
+
+	zl = std::move(ptr_zl);
+	b  = std::move(ptr_b);
+}
+
+/* ========== activate with activation function ========== */
+void Axon_act::actf( const int M_x, const int N_x) {
+	auto ptr_zl = std::move( zl );
+	auto ptr_al = std::move( al );
+
+	/* ===== grid, thread block size dimensions ===== */
+	const int SIZEDIM_Z_L = m * s_l; // m * s_l = (number of examples)*(size dim. or no. of nodes of lth layer)
+
+	cudaMemcpy(ptr_al.get(), ptr_zl.get(), sizeof(float) * SIZEDIM_Z_L, cudaMemcpyDeviceToDevice) ; 
+	
+	// M_x = number of threads in a (single) block in x-direction
+	const int Nx_calc = (SIZEDIM_Z_L + M_x -1)/M_x;
+
+	int Nx = max(N_x, Nx_calc);
+
+	/** using array of function ptr doesn't work because it has to be located to device code and, refer here: 
+	 * @ref http://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#function-pointers
+	 * https://devtalk.nvidia.com/default/topic/457094/cuda-programming-and-performance/how-can-i-use-__device__-function-pointer-in-cuda-/3
+	 * https://stackoverflow.com/questions/15644261/cuda-function-pointers/15646771#15646771
+	general_activation_function_kernel<<<Nx,M_x>>>( SIZEDIM_Z_L, ptr_zl.get(), idx_actf );
+	*/
+	if (idx_actf==1) {
+		sigmoid_kernel<<<Nx,M_x>>>(SIZEDIM_Z_L, ptr_al.get() );
+	} else if (idx_actf==2) {
+		tanh_kernel<<<Nx,M_x>>>(SIZEDIM_Z_L, ptr_al.get() );
+	} else if (idx_actf==3) {
+		tanh_kernel<<<Nx,M_x>>>(SIZEDIM_Z_L, ptr_al.get() );
+	} else if (idx_actf==4) {
+		arctan_kernel<<<Nx,M_x>>>(SIZEDIM_Z_L, ptr_al.get() );
+	} else if (idx_actf==5) {
+		ReLU_kernel<<<Nx,M_x>>>(SIZEDIM_Z_L, ptr_al.get() );
+	}	
+
+
+	zl = std::move(ptr_zl);	
+	al = std::move(ptr_al);	
+} 
 
 
 

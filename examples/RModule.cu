@@ -25,7 +25,7 @@
 /* 
  * COMPILATION TIP
  * nvcc -std=c++14 -lcublas ../src/Axon/Axon.cu RModule.cu -o Rmodule.exe
- * 
+ * nvcc -arch='sm_52' -std=c++14 -lcublas ../src/Axon/Axon.o ../src/Axon/activationf.o RModule.cu -o RModule.exe
  * */
 #include "../src/Axon/Axon.h"				// Axon_sh
 //#include "../src/smartCUBLAS/smartCUBLAS.h"	 // Prod_sh
@@ -101,7 +101,9 @@ int main(int argc, char* argv[]) {
 	std::vector<float> b_vec(n);
 	for (i=0;i<n;i++) { b_vec[i] = ((float) i + 1); }
 
-	Axon_sh Rmodule(k,n);
+//	Axon_sh Rmodule(k,n);
+	Axon Rmodule(k,n);
+	
 	Rmodule.load_from_hvec(b,b_vec);
 	Rmodule.load_from_hXvec(a,m);
 	Rmodule.init_al(m);

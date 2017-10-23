@@ -33,15 +33,13 @@
 
 #include <memory>  // std::shared_ptr, std::unique_ptr 
 #include <vector>  // std::vector
+#include <type_traits>	// std::add_pointer 
+
+#include "activationf.h" 
 
 #include "cublas_v2.h" 
 
-
-
 /* =============== custom deleters =============== */
-
-// field K = float; RR = real numbers, float  
-auto deleterRR_lambda=[&](float* ptr){ cudaFree(ptr); };
 
 /* custom deleter as a struct */ 
 struct deleterRR_struct
@@ -53,7 +51,6 @@ struct deleterRR_struct
 };
 
 /* =============== END of custom deleters =============== */
-
 
 /* =============== CUDA kernel functions =============== */
 /** @fn addb
@@ -71,15 +68,56 @@ struct deleterRR_struct
 __global__ void addb_kernel(const int, const int, float*,const float*);
 
 
-/* =============== Axon classes =============== */
+/* =============== activation function =============== */
+
+/*
+nvlink error   : Multiple definition of 'd_activat_fs' in 'RModule.o', first defined in 'Axon.o'
+nvlink error   : Multiple definition of 'D_activat_fs' in 'RModule.o', first defined in 'Axon.o'
+nvlink fatal   : Internal error: duplicate relocations at same address
+// function pointer type for __device__ activation functions
+// pf = processing function
+using activat_pf = std::add_pointer<float(float)>::type;
+
+// array of function pointers pointing to activation functions
+/** @fn d_activat_fs 
+ * 	@brief d_activate_fs, d, on device GPU, activation functions, as an array of them 
+ * */
+//extern __device__ activat_pf d_activat_fs[6] = { identity, sigmoid, tanh_overloaded, arctan_overloaded, ReLU, Gaussian };
+
+/** @fn D_activat_fs 
+ * 	@brief D_activate_fs, D, derivatives or gradient, activation functions, as an array of them 
+ * */
+//extern __device__ activat_pf D_activat_fs[6] = { D_identity, D_sigmoid, D_tanh, D_arctan, D_ReLU, D_Gaussian };
+
+
+
+// general activation functions to plug in these function pointers  
+
+__global__ void general_activation_function_kernel(const int,float*,const int);
+
+// the derivative of an activation function, denoted with D
+__global__ void general_Dactivation_function_kernel(const int,const float*,float*,const int);
+
+
+/* =============== END of activation functions =============== */
+
+
+
+
+
+
+/* ==================== Axon classes ==================== */
+
+/* =============== Axon class; no activation =============== */
 
 /**
- *  @class Axon_u
- *  @brief Axon, using unique pointers, contains weights matrix (Theta), and bias b between 2 layers
+ *  @class Axon
+ *  @brief Axon, using unique and shared pointers, contains weights matrix (Theta), and bias b between 2 layers
  */
 class Axon
 {
-	private:
+	// protected chosen instead of private becuase members of derived class can access protected members, but not private
+	protected:
 		// size dims. of Theta,b - "weights" and bias
 		int l; // lth layer, l=1,2,...L for L total number of layers
 		int s_lm1; // size dim. of l-1th layer
@@ -110,10 +148,10 @@ class Axon
 		// Constructor
 		Axon(const int s_lm1, const int s_l);
 
-		// Copy Constructor
+		// Move Constructor
 		/**
 		  *  @fn Axon(const Axon& old_axon)
-		  *  @brief copy constructor for Axon class
+		  *  @brief move constructor for Axon class
 		  *  @note C++11 && token used to mean "rvalue reference", rvalue reference and move constructors
 		  * @ref http://www.geeksforgeeks.org/copy-constructor-in-cpp/
 		  * https://stackoverflow.com/questions/16030081/copy-constructor-for-a-class-with-unique-ptr
@@ -191,21 +229,106 @@ class Axon
 		 *  @fn rightMul
 		 *  @class Axon_sh
 		 * 	@brief right multiplication
+		 * 	@ref https://stackoverflow.com/questions/25797291/should-a-virtual-c-method-implementation-in-cpp-file-be-marked-virtual
+		 * 		http://en.cppreference.com/w/cpp/language/virtual
+		 * 		https://www.ibm.com/support/knowledgecenter/en/SSQ2R2_8.5.1/com.ibm.tpf.toolkit.compilers.doc/ref/langref_os390/cbclr21020.htm#HDRCPLR139
+		 * 	@details C++ Standard n3337 § 7.1.2/5 says: 
+		 * 				The virtual specifier shall be used only in the initial declaration of a non-static class member function; 
+		 * 				Virtual functions are member functions whose behavior can be overridden in derived classes. 
+		 * 				As opposed to non-virtual functions, the overridden behavior is preserved even 
+		 * 				if there is no compile-time information about the actual type of the class.
+		 * 			Bottom line: Use virtual functions when you expect a class to be used as a base class in a derivation  
+		 * 						and the derived class may override the function implementation.
 		 * */
-		void rightMul(); 
+		virtual void rightMul(); 
 
 		/* ========== Add bias ========== */
-		void addb(const int);
-
+		virtual void addb(const int M_x, const int N_x=0);
 
 		// destructor
 		~Axon();			
 
 };
 
+/* =============== Axon class; with activation =============== */
+/**
+ *  @class Axon_act
+ *  @brief Axon_act, using unique and shared pointers, contains weights matrix (Theta), and bias b between 2 layers
+ *  @ref https://en.wikibooks.org/wiki/C%2B%2B_Programming/Classes/Inheritance
+ * 			6.1.1 of Discovering Moder C++, Peter Gottschling
+ * 	@details 3 types of class inheritance: public, private, and protected; 
+ * 		Use keyword public to implement public inheritance; classes who inherit with keyword public from base class,
+ * 		inherit all pbulic members as public members, protected data inherited as protected data, and 
+ * 		private data inherited but can't be accessed directly by class
+ */
+
+class Axon_act : public Axon  
+{
+	protected:  
+		// idx_actf, index for choice of activation function, idx_actf= 0,1,...5, see activationf.h
+		int idx_actf;
+
+		// intermediate "layer" zl 
+		std::unique_ptr<float[], deleterRR_struct> zl;
+
+	public:
+		// Constructor
+		/** 
+		 *	@fn Axon_act::Axon_act
+		 * 	@brief class constructor for Axon_act
+		 * 	@param idx_actf, const int idx_actf, index for choice of activation function, 
+		 * 		idx_actf= 0,1,...5, see activationf.h
+		 *  @ref 6.1.2 Iheriting Constructors, Peter Gottschling, Discovering Modern C++
+		 * https://msdn.microsoft.com/en-us/library/s16xw1a8.aspx
+		 *  @details 
+		 * */
+		Axon_act(const int s_lm1, const int s_l, const int idx_actf);
+
+		// Move Constructor
+		/**
+		  *  @fn Axon(const Axon_act& old_axon)
+		  *  @brief copy constructor for Axon_act class
+		  *  @note C++11 && token used to mean "rvalue reference", rvalue reference and move constructors
+		  * @ref http://www.geeksforgeeks.org/copy-constructor-in-cpp/
+		  * https://stackoverflow.com/questions/16030081/copy-constructor-for-a-class-with-unique-ptr
+		  * https://en.wikipedia.org/wiki/C%2B%2B11#Rvalue_references_and_move_constructors
+		  * */
+		Axon_act( Axon_act &&); 
+		
+		// operator overload assignment = 
+		Axon_act &operator=(Axon_act &&);
+
+		// initialize layer l
+		/**
+		 * 	@fn init_al 
+		 * 	@brief initialize layer l
+		 *  @param const int m - number of examples
+		 * */
+		void init_zlal(const int);
+
+		// for getting (and moving back) Theta,b, and lth layer al, zl (after activation function applied)
+		std::unique_ptr<float[],deleterRR_struct> getzl();
 
 
+		/* =============== "connect" the Axon =============== */
+		/* Once Axon has been setup, by the above, do the following to 
+		/* "connect through" the Axon */
+		/**
+		 *  @fn rightMul
+		 *  @class Axon_sh
+		 * 	@brief right multiplication
+		 * */
+		void rightMul(); 
 
+		/* ========== Add bias ========== */
+		void addb(const int M_x, const int N_x=0);
+
+		/* ========== activate with activation function ========== */
+		void actf( const int M_x, const int N_x=0); 
+		
+};
 
 
 #endif 
+
+
