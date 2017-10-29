@@ -25,7 +25,7 @@
 /* 
  * COMPILATION TIP
  * nvcc -std=c++14 -lcublas ../Axon/Axon.o -dc Feedfwd.cu -o Feedfwd.o
- * nvcc -std=c++14 -arch='sm_52' -dc ../Axon/Axon.cu ../Axon/activationf.cu Feedfwd.cu
+ * nvcc -std=c++14 -lcublas -arch='sm_52' -dc ../Axon/Axon.cu ../Axon/activationf.cu Feedfwd.cu
  * */
 #ifndef __FEEDFWD_H__
 #define __FEEDFWD_H__ 
@@ -47,8 +47,22 @@
  * */
 __global__ void setconstval_kernel(const int, const float, float*);
 
-
 __global__ void costJ_xent_kernel(const int, const float*, const float*, float*);
+
+/**
+ * @fn Deltaxent_kernel, __global__ void Deltaxent_kernel
+ * @brief compute Delta for the so-called cross-entropy loss function
+ * @details Compute
+ * ( \widehat{y}^k_{(i)} - y_{(i)}^k )/ (\widehat{y}^k_{(i)} (1 - \widehat{y}_{(i)}^k ) ) 
+*/
+__global__ void Deltaxent_kernel(const int, const float*, const float*, float* ) ;
+
+/**
+ * 	@fn HadamardMultiply
+ * 	@brief element-wise multiply  
+ * 	@details B:= A \odot B
+ * */
+__global__ void HadamardMultiply_kernel(const int, const float*, float*) ;
 
 
 /* ==================== Linear Regression class ==================== */
@@ -206,6 +220,11 @@ class LogisticReg
 		std::shared_ptr<float> getalm1(const int);
 
 		std::shared_ptr<float> getal(const int);		
+		std::unique_ptr<float[], deleterRR_struct> getzl(const int);		
+
+
+		std::unique_ptr<float[], deleterRR_struct> getDpsil(const int);		
+
 
 		std::unique_ptr<float[],deleterRR_struct> gety();
 
@@ -218,7 +237,6 @@ class LogisticReg
 		 * 		when adding the bias to the output layer of an axon, choose the number of threads in a single 
 		 * */
 		void feedfwd(int Mx=128);
-
 		
 		/* ========== Cost functional J ========== */
 		float compute_costJ_xent(const int Mx=128);
@@ -240,7 +258,10 @@ class LogisticReg
 		 * 				a numerical trick for the usual (mathematical) Kronecker delta function	 
 		 * */
 		void grad_desc(const int iterations=1500, const float alpha_rate=0.05f, int Mx=128);
-		
+
+	
+//		void predict_from_hXvec(std::vector<float>& , const int);
+
 		
 		// destructor
 		~LogisticReg();

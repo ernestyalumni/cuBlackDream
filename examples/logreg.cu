@@ -34,6 +34,13 @@
 
 #include "../src/Axon/activationf.h"
 
+//#include "cublas_v2.h" 
+
+		// custom deleter as a STRUCT for cublasHandle 
+		struct del_cublasHandle_struct {
+			void operator()(cublasHandle_t* ptr) { cublasDestroy(*ptr); }
+		};
+
  
 int main(int argc, char* argv[]) { 
 
@@ -52,6 +59,8 @@ int main(int argc, char* argv[]) {
 	int d = X_ex1data2[0].size(); // number of features
 	int K = y_ex1data2[0].size(); // dim. of output
 	int m = X_ex1data2.size(); 	// m = number of training examples
+	
+	int Mx = 128;
 	
 	std::cout << std::endl << " For ex2data1.txt : " << std::endl; 
 	std::cout << " d = " << d << ", K = " << K << ", m = " << m << std::endl;
@@ -123,9 +132,167 @@ int main(int argc, char* argv[]) {
 */
 
 	// sanity check
-	float result_logregcost = 0.f; 
+	// this WORKS
+/*	float result_logregcost = 0.f; 
 	result_logregcost = logreg.compute_costJ_xent(128);
 	std::cout << " costJ for cross-entropy function : " << result_logregcost << std::endl;
+*/
+
+
+	logreg.grad_desc_step(1.0,128); 
+
+	// this WORKS
+/*	auto alcheck = logreg.getal(1);
+	std::vector<float> halcheck(m*K,0.f);
+	cudaMemcpy(halcheck.data(), alcheck.get(), m*K *sizeof(float),cudaMemcpyDeviceToHost);
+	for (auto ele : halcheck) { 
+		std::cout << ele << " " ; } std::cout << std::endl;
+
+	auto zlcheck = logreg.getzl(1);
+	std::vector<float> hzlcheck(m*K,0.f);
+	cudaMemcpy(hzlcheck.data(), zlcheck.get(), m*K *sizeof(float),cudaMemcpyDeviceToHost);
+	for (auto ele : hzlcheck) { 
+		std::cout << ele << " " ; } std::cout << std::endl;
+*/
+
+	// sanity check for grad_desc_step
+	const int SIZE_Y= K * m; 
+	int Nx = (SIZE_Y + Mx -1)/Mx;
+/*	std::unique_ptr<float[], deleterRR_struct> Delta(new float[SIZE_Y], deleterRR_struct());
+	cudaMallocManaged((void **) &Delta, SIZE_Y*sizeof(float));
+	// this WORKS
+	Deltaxent_kernel<<<Nx,Mx>>>(SIZE_Y, logreg.gety().get(), logreg.getal(1).get(), Delta.get() );
+	std::vector<float> h_Delta(m*K, 0.f);
+//	cudaMemcpy(h_Delta.data(), Delta.get(), m*K *sizeof(float),cudaMemcpyDeviceToHost);
+	// this works 
+/*	auto Dpsilcheck = std::move( logreg.getDpsil(1) ); 
+	cudaMemcpy(h_Delta.data(), Dpsilcheck.get(), m*K *sizeof(float),cudaMemcpyDeviceToHost);
+*/
+	// this WORKS
+/*	HadamardMultiply_kernel<<<Nx,Mx>>>(SIZE_Y, 
+		logreg.getDpsil(1).get(), Delta.get());
+*/
+	// sanity check
+/*	cudaMemcpy(h_Delta.data(), Delta.get(), m*K *sizeof(float),cudaMemcpyDeviceToHost);
+
+	for (auto ele : h_Delta) { 
+		std::cout << ele << " " ; } std::cout << std::endl;
+*/
+	float a1 = 1.0f/ ((float) m);
+	float bet = 0.f;
+	
+	const int SIZE_dTHETA = d*K;
+/*	std::unique_ptr<float[], deleterRR_struct> dTheta(new float[SIZE_dTHETA], deleterRR_struct());
+	cudaMallocManaged((void **) &dTheta, SIZE_dTHETA*sizeof(float));
+
+	std::unique_ptr<cublasHandle_t,del_cublasHandle_struct> handle_u(
+		new cublasHandle_t);
+	cublasCreate(handle_u.get());	
+	
+//	auto alm1check = logreg.getalm1(1);
+
+/* this WORKS 	
+	cublasSgemm(*handle_u.get(),
+		CUBLAS_OP_T, CUBLAS_OP_N, d, K, m, &a1, 
+		logreg.getalm1(1).get(), m, 
+		Delta.get(), m , 
+			&bet, dTheta.get(), d);
+
+	cudaMemcpy(h_Theta.data(), dTheta.get(), d*K *sizeof(float),cudaMemcpyDeviceToHost);
+	for (auto ele : h_Theta) { 
+		std::cout << ele << " " ; } std::cout << std::endl;
+*/
+
+
+	// sanity check
+	// this WORKS
+/*	auto ptr_Theta_check = logreg.getTheta(1);
+	auto ptr_b_check = logreg.getb(1); 
+	cudaMemcpy(h_Theta.data(), ptr_Theta_check.get(), d*K *sizeof(float),cudaMemcpyDeviceToHost);
+	cudaMemcpy(h_b.data(), ptr_b_check.get(), K *sizeof(float),cudaMemcpyDeviceToHost);
+	std::cout << std::endl << " after 1 grad. desc., Theta : " << std::endl; 
+	for (auto ele : h_Theta) { 
+		std::cout << ele << " " ; } std::cout << std::endl;
+	std::cout << std::endl << " after 1 grad. desc., b     : " << std::endl; 
+	for (auto ele : h_b) { 
+		std::cout << ele << " " ; } std::cout << std::endl;
+*/
+	/* ========== Compute and display cost and gradient with non-zero theta ========== */
+	h_Theta[0] = 0.2f;
+	h_Theta[1] = 0.2f;
+	h_b[0] = -24.f;  
+	h_Thetab[0] = h_Theta; 
+	h_Thetab[1] = h_b;
+	
+	logreg.load_from_hThetaBs( h_Thetab);
+	logreg.feedfwd(128);
+	// this WORKS 
+	// logreg.grad_desc_step(1.0,128); 
+
+	logreg.grad_desc(5000,0.001f,128);
+
+	// this WORKS
+	float result_logregcost = 0.f; 
+	result_logregcost = logreg.compute_costJ_xent(128);
+	std::cout << " costJ for cross-entropy function : " << result_logregcost << std::endl;	
+	// 0.21833 = J 
+
+
+	// sanity check
+	/* fprintf('Expected cost (approx): 0.203\n');
+	 * Obtained 0.203706 after 4000 iterations with alpha=0.001
+	 * fprintf('Expected theta (approx):\n');
+	 * fprintf(' -25.161\n 0.206\n 0.201\n');
+	 * Obtained 0.196945 0.192074 -24.0001
+	 * */
+/*	auto ptr_Theta_check = logreg.getTheta(1);
+	auto ptr_b_check = logreg.getb(1); 
+	cudaMemcpy(h_Theta.data(), ptr_Theta_check.get(), d*K *sizeof(float),cudaMemcpyDeviceToHost);
+	cudaMemcpy(h_b.data(), ptr_b_check.get(), K *sizeof(float),cudaMemcpyDeviceToHost);
+	std::cout << std::endl << " after 1 grad. desc., Theta : " << std::endl; 
+	for (auto ele : h_Theta) { 
+		std::cout << ele << " " ; } std::cout << std::endl;
+	std::cout << std::endl << " after 1 grad. desc., b     : " << std::endl; 
+	for (auto ele : h_b) { 
+		std::cout << ele << " " ; } std::cout << std::endl;
+*/
+	/*
+	 * %% ============== Part 4: Predict and Accuracies ==============
+	 * %  After learning the parameters, you'll like to use it to predict the outcomes
+	 * %  on unseen data. In this part, you will use the logistic regression model
+	 * %  to predict the probability that a student with score 45 on exam 1 and 
+	 * %  score 85 on exam 2 will be admitted.
+	 * %
+	 * %  Furthermore, you will compute the training and test set accuracies of 
+	 * %  our model.
+	 * %
+	 * %  Your task is to complete the code in predict.m
+	 * %  Predict probability for a student with score 45 on exam 1 
+	 * %  and score 85 on exam 2 
+	 */
+	std::vector<float> prob { 45.f, 85.f }; 
+	logreg.load_X_from_hvec(prob, 1);
+	logreg.feedfwd(128); 
+
+
+	std::cout << std::endl 
+		<< " For a student with scores 45 and 85, we predict an admission " << std::endl;
+
+	// sanity check
+	// it WORKS
+	/*
+	 * fprintf('Expected value: 0.775 +/- 0.002\n\n');
+	 * obtained 0.766516
+	 * */
+	
+	auto alcheck = logreg.getal(1);
+	std::vector<float> halcheck(1*K,0.f);
+	cudaMemcpy(halcheck.data(), alcheck.get(), 1*K *sizeof(float),cudaMemcpyDeviceToHost);
+	for (auto ele : halcheck) { 
+		std::cout << ele << " " ; } std::cout << std::endl;
+	
+
+
 
 }
 

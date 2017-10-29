@@ -369,7 +369,8 @@ Axon_act::Axon_act(const int s_lm1,const int s_l, const int idx_actf) :
 Axon_act::Axon_act(Axon_act&& old_axon) 
 	: 	Axon(std::move(old_axon)), // error: function "Axon::Axon(const Axon &)" (declared implicitly) cannot be referenced -- it is a deleted function
 
-	 zl(std::move(old_axon.zl))
+	 zl(std::move(old_axon.zl)), 
+	 Dpsil(std::move(old_axon.Dpsil)) 
 {
 	idx_actf = old_axon.idx_actf;
 }
@@ -383,6 +384,7 @@ Axon_act & Axon_act::operator=(Axon_act && old_axon)
 	idx_actf = old_axon.idx_actf;
 
 	zl = std::move( old_axon.zl );
+	Dpsil = std::move( old_axon.Dpsil );
 
 	return *this;
 }
@@ -408,14 +410,17 @@ void Axon_act::init_zlal(const int m) {
 	this->m = m;
 }
 
-// for getting Theta,b, and lth layer al, zl (after activation function applied)
-
+// for getting Theta,b, and lth layer zl, Dpsil (after activation function applied)
 
 std::unique_ptr<float[],deleterRR_struct> Axon_act::getzl() {
 	auto ptr = std::move(zl);
 	return ptr;
 }
 
+std::unique_ptr<float[],deleterRR_struct> Axon_act::getDpsil() {
+	auto ptr = std::move(Dpsil);
+	return ptr;
+}
 
 
 /* =============== "connect" the Axon =============== */
@@ -465,9 +470,15 @@ void Axon_act::addb(const int M_x, const int N_x) {
 	// M_x = number of threads in a (single) block in x-direction
 	const int Nx_calc = (SIZEDIM_Z_L + M_x -1)/M_x;
 
-	int Nx = max(N_x, Nx_calc);
+	if (N_x ==0) { 
+		int Nx = max(N_x, Nx_calc);
+	} else { int Nx = N_x; }  
+
+//	int Nx = max(N_x, Nx_calc);
 	
-	addb_kernel<<<Nx,M_x>>>(m,s_l,ptr_zl.get(),ptr_b.get() );
+//	addb_kernel<<<Nx,M_x>>>(m,s_l,ptr_zl.get(),ptr_b.get() );
+	addb_kernel<<<N_x,M_x>>>(m,s_l,ptr_zl.get(),ptr_b.get() );
+
 
 	zl = std::move(ptr_zl);
 	b  = std::move(ptr_b);
@@ -475,18 +486,21 @@ void Axon_act::addb(const int M_x, const int N_x) {
 
 /* ========== activate with activation function ========== */
 void Axon_act::actf( const int M_x, const int N_x) {
-	auto ptr_zl = std::move( zl );
+/*	auto ptr_zl = std::move( zl );
 	auto ptr_al = std::move( al );
-
+*/
 	/* ===== grid, thread block size dimensions ===== */
 	const int SIZEDIM_Z_L = m * s_l; // m * s_l = (number of examples)*(size dim. or no. of nodes of lth layer)
 
-	cudaMemcpy(ptr_al.get(), ptr_zl.get(), sizeof(float) * SIZEDIM_Z_L, cudaMemcpyDeviceToDevice) ; 
-	
+//	cudaMemcpy(ptr_al.get(), ptr_zl.get(), sizeof(float) * SIZEDIM_Z_L, cudaMemcpyDeviceToDevice) ; 
+	cudaMemcpy(al.get(), zl.get(), sizeof(float) * SIZEDIM_Z_L, cudaMemcpyDeviceToDevice) ; 
+		
 	// M_x = number of threads in a (single) block in x-direction
 	const int Nx_calc = (SIZEDIM_Z_L + M_x -1)/M_x;
 
-	int Nx = max(N_x, Nx_calc);
+	if (N_x ==0) { 
+		int Nx = max(N_x, Nx_calc);
+	} else { int Nx = N_x; }  
 
 	/** using array of function ptr doesn't work because it has to be located to device code and, refer here: 
 	 * @ref http://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#function-pointers
@@ -494,7 +508,7 @@ void Axon_act::actf( const int M_x, const int N_x) {
 	 * https://stackoverflow.com/questions/15644261/cuda-function-pointers/15646771#15646771
 	general_activation_function_kernel<<<Nx,M_x>>>( SIZEDIM_Z_L, ptr_zl.get(), idx_actf );
 	*/
-	if (idx_actf==1) {
+/*	if (idx_actf==1) {
 		sigmoid_kernel<<<Nx,M_x>>>(SIZEDIM_Z_L, ptr_al.get() );
 	} else if (idx_actf==2) {
 		tanh_kernel<<<Nx,M_x>>>(SIZEDIM_Z_L, ptr_al.get() );
@@ -506,11 +520,69 @@ void Axon_act::actf( const int M_x, const int N_x) {
 		ReLU_kernel<<<Nx,M_x>>>(SIZEDIM_Z_L, ptr_al.get() );
 	}	
 
+*/
+	if (idx_actf==0) {
+		identity_kernel<<<Nx,M_x>>>(SIZEDIM_Z_L, al.get() );
+	}
+	else if (idx_actf==1) {
+		sigmoid_kernel<<<Nx,M_x>>>(SIZEDIM_Z_L, al.get() );
+	} else if (idx_actf==2) {
+		tanh_kernel<<<Nx,M_x>>>(SIZEDIM_Z_L, al.get() );
+	} else if (idx_actf==3) {
+		tanh_kernel<<<Nx,M_x>>>(SIZEDIM_Z_L, al.get() );
+	} else if (idx_actf==4) {
+		arctan_kernel<<<Nx,M_x>>>(SIZEDIM_Z_L, al.get() );
+	} else if (idx_actf==5) {
+		ReLU_kernel<<<Nx,M_x>>>(SIZEDIM_Z_L, al.get() );
+	}	
 
-	zl = std::move(ptr_zl);	
-	al = std::move(ptr_al);	
+
+//	zl = std::move(ptr_zl);	
+//	al = std::move(ptr_al);	
 } 
 
+/* ========== partial derivatives with respect to z^l of psi^l(z^l) ========== */
+void Axon_act::do_Dpsi( const int M_x, const int N_x) {
+	// initialize (i.e. instantiate, construct) 
+	const int SIZEDIM_Z_L = m * s_l;
 
+	std::unique_ptr<float[], deleterRR_struct> d_Dpsi(new float[SIZEDIM_Z_L], deleterRR_struct());
+	cudaMallocManaged((void **) &d_Dpsi,SIZEDIM_Z_L*sizeof(float));
 
+	auto ptr_zl = std::move( zl );
 
+	/* ===== grid, thread block size dimensions ===== */
+	cudaMemcpy(d_Dpsi.get(), ptr_zl.get(), sizeof(float) * SIZEDIM_Z_L, cudaMemcpyDeviceToDevice) ; 
+	
+	// M_x = number of threads in a (single) block in x-direction
+	const int Nx_calc = (SIZEDIM_Z_L + M_x -1)/M_x;
+
+	if (N_x ==0) { 
+		int Nx = max(N_x, Nx_calc);
+	} else { int Nx = N_x; }  
+
+	/** using array of function ptr doesn't work because it has to be located to device code and, refer here: 
+	 * @ref http://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#function-pointers
+	 * https://devtalk.nvidia.com/default/topic/457094/cuda-programming-and-performance/how-can-i-use-__device__-function-pointer-in-cuda-/3
+	 * https://stackoverflow.com/questions/15644261/cuda-function-pointers/15646771#15646771
+	general_activation_function_kernel<<<Nx,M_x>>>( SIZEDIM_Z_L, ptr_zl.get(), idx_actf );
+	*/
+	if (idx_actf==0) {
+		D_identity_kernel<<<Nx,M_x>>>(SIZEDIM_Z_L, ptr_zl.get(), d_Dpsi.get() );
+	} else if (idx_actf==1) {
+		D_sigmoid_kernel<<<Nx,M_x>>>(SIZEDIM_Z_L, ptr_zl.get(), d_Dpsi.get() );
+	} else if (idx_actf==2) {
+		D_tanh_kernel<<<Nx,M_x>>>(SIZEDIM_Z_L, ptr_zl.get(), d_Dpsi.get() );
+	} else if (idx_actf==3) {
+		D_tanh_kernel<<<Nx,M_x>>>(SIZEDIM_Z_L, ptr_zl.get(), d_Dpsi.get() );
+	} else if (idx_actf==4) {
+		D_arctan_kernel<<<Nx,M_x>>>(SIZEDIM_Z_L, ptr_zl.get(), d_Dpsi.get() );
+	} else if (idx_actf==5) {
+		D_ReLU_kernel<<<Nx,M_x>>>(SIZEDIM_Z_L, ptr_zl.get(), d_Dpsi.get() );
+	}	
+
+	// Remember to move ptr_zl back to zl
+	zl = std::move(ptr_zl);	
+	Dpsil = std::move(d_Dpsi);
+
+}

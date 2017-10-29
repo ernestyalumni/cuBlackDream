@@ -35,12 +35,16 @@
 #ifndef __ACTIVATIONF_H__
 #define __ACTIVATIONF_H__ 
 
-#include <type_traits>	// std::add_pointer 
+//#include <type_traits>	// std::add_pointer 
 
 // 0
 extern __device__ float identity(float);
 
+__global__ void identity_kernel(const int, float*);
+
 extern __device__ float D_identity(float);
+
+__global__ void D_identity_kernel(const int, const float*, float*);
 
 // 1
 extern __device__ float sigmoid(float);
