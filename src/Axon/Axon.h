@@ -33,7 +33,6 @@
 
 #include <memory>  // std::shared_ptr, std::unique_ptr 
 #include <vector>  // std::vector
-#include <type_traits>	// std::add_pointer 
 
 #include "activationf.h" 
 
@@ -53,57 +52,26 @@ struct deleterRR_struct
 /* =============== END of custom deleters =============== */
 
 /* =============== CUDA kernel functions =============== */
-/** @fn addb
- * 	@brief add bias 
- * 	@note if this function was declared inside a class, as a class member, 
- * 			I obtained:
- * 			error: illegal combination of memory qualifiers 
- * 	@details Given (a_l)_i^{\  \  j} \in \text{Mat}_{\mathbb{R}}(m, s_l), 
- * 				we want to add a bias b, but along the "columns", b=b^j
- * 				assume (a_l) is COLUMN-major ordered.  
- *  			it is reasonable to assume m > s_l 
- * 				(i.e. number of rows, m, also representing the number of input examples, 
- * 				s_l = size dims. of "layer" l, a_l, or number of "nodes" of a_l
+
+/** @fn setconstval_kernel
+ * 	@brief set a float array of length Lx all to values of const_val 
+ * 	@details cudaMemset only sets an array to 0 value; we want value of 1
  * */
-__global__ void addb_kernel(const int, const int, float*,const float*);
+__global__ void setconstval_kernel(const int, const float, float*);
 
-
-/* =============== activation function =============== */
-
+/* =============== note on activation function =============== */
 /*
 nvlink error   : Multiple definition of 'd_activat_fs' in 'RModule.o', first defined in 'Axon.o'
 nvlink error   : Multiple definition of 'D_activat_fs' in 'RModule.o', first defined in 'Axon.o'
 nvlink fatal   : Internal error: duplicate relocations at same address
 // function pointer type for __device__ activation functions
 // pf = processing function
+// the following DOES NOT work in CUDA
 using activat_pf = std::add_pointer<float(float)>::type;
 
-// array of function pointers pointing to activation functions
-/** @fn d_activat_fs 
- * 	@brief d_activate_fs, d, on device GPU, activation functions, as an array of them 
- * */
-//extern __device__ activat_pf d_activat_fs[6] = { identity, sigmoid, tanh_overloaded, arctan_overloaded, ReLU, Gaussian };
-
-/** @fn D_activat_fs 
- * 	@brief D_activate_fs, D, derivatives or gradient, activation functions, as an array of them 
- * */
-//extern __device__ activat_pf D_activat_fs[6] = { D_identity, D_sigmoid, D_tanh, D_arctan, D_ReLU, D_Gaussian };
-
-
-
-// general activation functions to plug in these function pointers  
-
-__global__ void general_activation_function_kernel(const int,float*,const int);
-
-// the derivative of an activation function, denoted with D
-__global__ void general_Dactivation_function_kernel(const int,const float*,float*,const int);
-
-
+// array of function pointers pointing to activation functions  
+* DOES NOT work in CUDA (i.e. array of function pointers) when in separate code to compile 
 /* =============== END of activation functions =============== */
-
-
-
-
 
 
 /* ==================== Axon classes ==================== */
@@ -218,8 +186,22 @@ class Axon
 		void move2b_from_ptr(std::unique_ptr<float[], deleterRR_struct> & ) ;
 
 
+		/**
+		 * @fn Axon::getalm1
+		 * @details we don't use std::move because we don't want to change (move) 
+		 * 	ownership of the pointer (and the memory it points to) because we're 
+		 *  dealing with a shared_ptr (you can move it, but then we'd want to use a 
+		 * 	unique_ptr; we want to share it)
+		 * */
 		std::shared_ptr<float> getalm1();
 
+		/**
+		 * @fn Axon::getal
+		 * @details we don't use std::move because we don't want to change (move) 
+		 * 	ownership of the pointer (and the memory it points to) because we're 
+		 *  dealing with a shared_ptr (you can move it, but then we'd want to use a 
+		 * 	unique_ptr; we want to share it)
+		 * */
 		std::shared_ptr<float> getal();
 
 		/* =============== "connect" the Axon =============== */
@@ -271,6 +253,9 @@ class Axon_act : public Axon
 		// intermediate "layer" zl 
 		std::unique_ptr<float[], deleterRR_struct> zl;
 
+		// partial derivatives of the so-called "activation-layer" with respecet to zl
+		std::unique_ptr<float[], deleterRR_struct> Dpsil; 
+
 	public:
 		// Constructor
 		/** 
@@ -309,6 +294,9 @@ class Axon_act : public Axon
 		// for getting (and moving back) Theta,b, and lth layer al, zl (after activation function applied)
 		std::unique_ptr<float[],deleterRR_struct> getzl();
 
+		// for getting lth layer Dzl (after activation function applied)
+		std::unique_ptr<float[],deleterRR_struct> getDpsil();
+
 
 		/* =============== "connect" the Axon =============== */
 		/* Once Axon has been setup, by the above, do the following to 
@@ -325,10 +313,14 @@ class Axon_act : public Axon
 
 		/* ========== activate with activation function ========== */
 		void actf( const int M_x, const int N_x=0); 
+
+		/* ========== partial derivatives with respect to z^l of psi^l(z^l) ========== */
+		void do_Dpsi( const int M_x, const int N_x=0); 
+
 		
 };
 
 
-#endif 
+#endif 	// Axon classes end
 
 

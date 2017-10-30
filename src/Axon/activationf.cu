@@ -28,183 +28,153 @@
  * */
 #include "activationf.h"
 
-__device__ float identity(float a_val) {
-	return a_val;
+// 0 
+__global__ void identity_kernel(const int SIZE, float*z) {
 }
 
-__device__ float D_identity(float a_val) {
-	return 1.0f;
-}
-
-
-__device__ float sigmoid(float a_val) {
-	a_val = 1.f/(1.f + expf(-a_val));
-	return a_val;
-}
-
-__global__ void sigmoid_kernel(const int SIZE, float*z) {
-	int tid = threadIdx.x + blockDim.x * blockIdx.x;  
+__global__ void D_identity_kernel(const int SIZE, const float* z, float* d_a) {
+	int kx = threadIdx.x + blockDim.x * blockIdx.x;  
 	
-	if (tid >= SIZE) { return; } 
-		
-	float a_val =0.f;	
-	a_val = z[tid];
+	if (kx >= SIZE) { return; } 
 
-	a_val = 1.f/(1.f + expf(-a_val));
-
-	z[tid]=a_val;
+	for (int tid=kx; tid < SIZE; tid += gridDim.x*blockDim.x) 
+	{	
+		d_a[tid]= 1.0f;	
+	}
 }
 
-__device__ float D_sigmoid(float a_val) {
-	a_val = 1.f/(1.f + expf(-a_val));
-	a_val = a_val * ( 1.0f - a_val );
-	return a_val;
+// 1
+__global__ void sigmoid_kernel(const int SIZE, float*z) {
+	int kx = threadIdx.x + blockDim.x * blockIdx.x;  
+	
+	if (kx >= SIZE) { return; } 
+
+	for (int tid=kx; tid < SIZE; tid += gridDim.x*blockDim.x) 
+	{	
+		float a_val = z[tid];
+
+		a_val = 1.f/(1.f + expf(-a_val));
+
+		z[tid]=a_val;
+	}
 }
 
 
 __global__ void D_sigmoid_kernel(const int SIZE, const float* z, float* d_a) {
-	int tid = threadIdx.x + blockDim.x * blockIdx.x;  
+	int kx = threadIdx.x + blockDim.x * blockIdx.x;  
 	
-	if (tid >= SIZE) { return; } 
-		
-	float a_val =0.f;	
-	a_val = z[tid];
+	if (kx >= SIZE) { return; } 
 
-	a_val = 1.f/(1.f + expf(-a_val));
-	a_val = a_val * ( 1.0f - a_val );
-	
-	d_a[tid]=a_val;	
-	
-}
+	for (int tid=kx; tid < SIZE; tid += gridDim.x*blockDim.x) 
+	{	
+		float a_val = z[tid];
 
-__device__ float tanh_overloaded(float a_val) {
-	a_val = tanhf(a_val);	
-	return a_val;	
+		a_val = 1.f/(1.f + expf(-a_val));
+		a_val = a_val * ( 1.0f - a_val );
+	
+		d_a[tid]=a_val;	
+	}
 }
 
 
+// 2
 __global__ void tanh_kernel(const int SIZE, float*z) 
 {
-	int tid = threadIdx.x + blockDim.x * blockIdx.x;  
+	int kx = threadIdx.x + blockDim.x * blockIdx.x;  
 	
-	if (tid >= SIZE) { return; } 
-		
-	float a_val =0.f;	
-	a_val = z[tid];
+	if (kx >= SIZE) { return; } 
 
-	a_val = tanhf(a_val);
-	z[tid] = a_val;
-}
+	for (int tid=kx; tid < SIZE; tid += gridDim.x*blockDim.x) 
+	{	
+		float a_val = z[tid];
 
-__device__ float D_tanh(float a_val) {
-	a_val = tanhf(a_val);
-	a_val = 1.0f - (a_val)*a_val;	
-	return a_val;	
+		a_val = tanhf(a_val);
+		z[tid] = a_val;
+	}
 }
 
 
 __global__ void D_tanh_kernel(const int SIZE, const float* z, float*d_a) {
-	int tid = threadIdx.x + blockDim.x * blockIdx.x;  
+	int kx = threadIdx.x + blockDim.x * blockIdx.x;  
 	
-	if (tid >= SIZE) { return; } 
-		
-	float a_val =0.f;	
-	a_val = z[tid];
+	if (kx >= SIZE) { return; } 
 
-	a_val = tanhf(a_val);
-	a_val = 1.0f - (a_val)*a_val;	
-	d_a[tid] = a_val;	
-	
+	for (int tid=kx; tid < SIZE; tid += gridDim.x*blockDim.x) 
+	{
+		float a_val = z[tid];
+
+		a_val = tanhf(a_val);
+		a_val = 1.0f - (a_val)*a_val;	
+		d_a[tid] = a_val;	
+	}
 }
 
-__device__ float arctan_overloaded(float a_val) {
-	a_val = atanf(a_val);
-	return a_val;
-}
+
 
 __global__ void arctan_kernel(const int SIZE, float*z) {
-	int tid = threadIdx.x + blockDim.x * blockIdx.x;  
+	int kx = threadIdx.x + blockDim.x * blockIdx.x;  
 	
-	if (tid >= SIZE) { return; } 
-		
-	float a_val =0.f;	
-	a_val = z[tid];
+	if (kx >= SIZE) { return; } 
+
+	for (int tid=kx; tid < SIZE; tid += gridDim.x*blockDim.x) 
+	{
+		float a_val = z[tid];
 	
-	a_val = atanf(a_val);
-	z[tid] = a_val;
-	
+		a_val = atanf(a_val);
+		z[tid] = a_val;
+	}
 }
 
-__device__ float D_arctan(float a_val) {
-	a_val = 1.0f / ( 1.0f + a_val*a_val);
-	return a_val;
-}
 
 
 __global__ void D_arctan_kernel(const int SIZE, const float* z, float*d_a) {
-	int tid = threadIdx.x + blockDim.x * blockIdx.x;  
+	int kx = threadIdx.x + blockDim.x * blockIdx.x;  
 	
-	if (tid >= SIZE) { return; } 
-		
-	float a_val =0.f;	
-	a_val = z[tid];
+	if (kx >= SIZE) { return; } 
 
-	a_val = 1.0f / ( 1.0f + a_val*a_val);
-	d_a[tid] = a_val;
-}
+	for (int tid=kx; tid < SIZE; tid += gridDim.x*blockDim.x) 
+	{
+		float a_val = z[tid];
 
-__device__ float ReLU(float a_val) {
-	if (a_val < 0.f) { 
-		return 0.f; 
-	} else{
-		return a_val; 
+		a_val = 1.0f / ( 1.0f + a_val*a_val);
+		d_a[tid] = a_val;
 	}
 }
+
 
 __global__ void ReLU_kernel(const int SIZE, float*z) {
-	int tid = threadIdx.x + blockDim.x * blockIdx.x;  
+	int kx = threadIdx.x + blockDim.x * blockIdx.x;  
 	
-	if (tid >= SIZE) { return; } 
-		
-	float a_val =0.f;	
-	a_val = z[tid];
+	if (kx >= SIZE) { return; } 
+
+	for (int tid=kx; tid < SIZE; tid += gridDim.x*blockDim.x) 
+	{
+		float a_val = z[tid];
 	
-	if (a_val < 0.f) { 
-		z[tid] = 0.f;
-	} 
-}
-
-
-__device__ float D_ReLU(float a_val) {
-	if (a_val < 0.f) { 
-		return 0.f;
-	} else {
-		return 1.0f; 
+		if (a_val < 0.f) { 
+			z[tid] = 0.f;
+		} 
 	}
-	
 }
+
 
 __global__ void D_ReLU_kernel(const int SIZE, const float*z, float*d_a) {
-	int tid = threadIdx.x + blockDim.x * blockIdx.x;  
+	int kx = threadIdx.x + blockDim.x * blockIdx.x;  
 	
-	if (tid >= SIZE) { return; } 
-		
-	float a_val =0.f;	
-	a_val = z[tid];
-	
-	if (a_val < 0.f) { 
-		d_a[tid] = 0.f;
-	} else {
-		d_a[tid] = 1.0f; 
-	}
-}	
-	
+	if (kx >= SIZE) { return; } 
 
-__device__ float Gaussian(float a_val) {
-	a_val = expf(-1.0f * (a_val * a_val) ) ; 
-	return a_val;
+	for (int tid=kx; tid < SIZE; tid += gridDim.x*blockDim.x) 
+	{
+		float a_val = z[tid];
+	
+		if (a_val < 0.f) { 
+			d_a[tid] = 0.f;
+		} else {
+			d_a[tid] = 1.0f; 
+		}
+	}	
 }
-
+	
 
 /**
  * 	@fn Gaussian_kernel
@@ -212,24 +182,22 @@ __device__ float Gaussian(float a_val) {
  * 	@param sigma_dev
  *  @note exp(-(z-c)^2 / (2.f * sigma_dev*sigma_dev) )
  * */
-__global__ void Gaussian_kernel(const float c, const float sigma_dev, const int SIZE, float* z) {
-	int tid = threadIdx.x + blockDim.x * blockIdx.x;  
+__global__ void Gaussian_kernel(const int SIZE, float* z) {
+	int kx = threadIdx.x + blockDim.x * blockIdx.x;  
 	
-	if (tid >= SIZE) { return; } 
-		
-	float a_val =0.f;	
-	a_val = z[tid];
+	if (kx >= SIZE) { return; } 
+
+	for (int tid=kx; tid < SIZE; tid += gridDim.x*blockDim.x) 
+	{
+		float a_val = z[tid];
 	
-	a_val = expf( -1.0f * ( a_val - c)*(a_val-c) / 2.0f / (sigma_dev*sigma_dev) ) ;
+		a_val = expf( -1.0f * ( a_val - 0.f)*(a_val-0.f) / 2.0f / (1.f*1.f) ) ;
 	
-	z[tid] = a_val;
+		z[tid] = a_val;
+	}
 }
 
 
-__device__ float D_Gaussian(float a_val) {
-	a_val = -2.0f * a_val * expf(-1.0f * (a_val * a_val) ) ; 
-	return a_val;
-}
 
 /** 
  * 	@fn D_Gaussian_kernel
@@ -238,20 +206,21 @@ __device__ float D_Gaussian(float a_val) {
  * 	@param sigma_dev
  *  @note -(z-c) / ( sigma_dev*sigma_dev) * exp(-(z-c)^2 / (2.f * sigma_dev*sigma_dev) )
  * */	
-__global__ void D_Gaussian_kernel(const float c, const float sigma_dev, const int SIZE, const float* z, float*d_a) 
+__global__ void D_Gaussian_kernel(const int SIZE, const float* z, float*d_a) 
 {
-	int tid = threadIdx.x + blockDim.x * blockIdx.x;  
+	int kx = threadIdx.x + blockDim.x * blockIdx.x;  
 	
-	if (tid >= SIZE) { return; } 
-		
-	float a_val =0.f;	
-	a_val = z[tid];
+	if (kx >= SIZE) { return; } 
+
+	for (int tid=kx; tid < SIZE; tid += gridDim.x*blockDim.x) 
+	{
+		float a_val = z[tid];
 	
-	a_val = -1.0f * (a_val - c)/(sigma_dev*sigma_dev) * 
-			expf( -1.0f * ( a_val - c)*(a_val-c) / 2.0f / (sigma_dev*sigma_dev) ) ;
+		a_val = -1.0f * (a_val - 0.f)/(1.f*1.f) * 
+			expf( -1.0f * ( a_val - 0.f)*(a_val-0.f) / 2.0f / (1.f*1.f) ) ;
 
-	d_a[tid] = a_val;
-
+		d_a[tid] = a_val;
+	}
 }
 
 

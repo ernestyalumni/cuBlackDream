@@ -24,13 +24,9 @@
  * */
 /* 
  * COMPILATION TIP
- * nvcc -std=c++14 -lcublas ../src/Axon/Axon.cu RModule.cu -o Rmodule.exe
- * nvcc -arch='sm_52' -std=c++14 -lcublas ../src/Axon/Axon.o ../src/Axon/activationf.o RModule.cu -o RModule.exe
+ * nvcc -std=c++14 -arch='sm_52' -lcublas ../src/Axon/Axon.cu ../src/Axon/activationf.cu RModule.cu -o RModule.exe
  * */
-#include "../src/Axon/Axon.h"				// Axon_sh
-//#include "../src/smartCUBLAS/smartCUBLAS.h"	 // Prod_sh
-
-//#include "cublas_v2.h" 
+#include "../src/Axon/Axon.h"				
 
 #include <iostream>
 
@@ -99,119 +95,101 @@ int main(int argc, char* argv[]) {
 
 	// define a n-vector, b_vec \in \mathbb{R}^n
 	std::vector<float> b_vec(n);
-	for (i=0;i<n;i++) { b_vec[i] = ((float) i + 1); }
+	for (i=0;i<n;i++) { b_vec[i] = ((float) i + 1)*11.f; }
 
-//	Axon_sh Rmodule(k,n);
 	Axon Rmodule(k,n);
 	
 	Rmodule.load_from_hvec(b,b_vec);
 	Rmodule.load_from_hXvec(a,m);
 	Rmodule.init_al(m);
 
-	// unique_ptr version
-	Axon Rmodule_u(k,n);
-	Rmodule_u.load_from_hvec(b,b_vec);
-	Rmodule_u.load_from_hXvec(a,m);
-	Rmodule_u.init_al(m);
 
 
-	std::vector<int> sizeDims = Rmodule_u.getSizeDims();
+	std::vector<int> sizeDims = Rmodule.getSizeDims();
 	
 	const int s_lm1 = sizeDims[0];
 	const int s_l= sizeDims[1];
 	const int mm= sizeDims[2];
 	std::cout << " s_lm1 : " << s_lm1 << " s_l : " << s_l << " m : " << mm << std::endl;
 
-/*
-	auto a_u = std::move( Rmodule_u.getalm1() );  
-	auto b_u = std::move( Rmodule_u.getTheta() );
-	auto c_u = std::move( Rmodule_u.getal() );
 
-	struct del_cublasHandle_struct {
-		void operator()(cublasHandle_t* ptr) { cublasDestroy(*ptr); }
-	};
+	Rmodule.rightMul();
 
-	std::unique_ptr<cublasHandle_t,del_cublasHandle_struct> handle_u(
-		new cublasHandle_t);
-	cublasCreate(handle_u.get());
-
-	float a1=1.0f;
-	float bet = 0.f;
-	cublasSgemm(*handle_u.get(),CUBLAS_OP_N,CUBLAS_OP_N,mm,s_l,s_lm1,&a1,a_u.get(),mm,b_u.get(),s_lm1,&bet,c_u.get(),mm);
-
-	std::vector<float> utempal(m*n);
-	cudaMemcpy(utempal.data(), c_u.get(), sizeof(float)*m*n, cudaMemcpyDeviceToHost);
-
-
-	// print c row by row
-	std::cout << "c_u: " << std::endl;
-	for (i=0;i<m;i++){
-		for (j=0;j<n;j++) {
-			std::cout << utempal[i +j*m] << " ";
-		}
-		std::cout << std::endl;
-	}
-*/
-
-
-	
-//	cudaDeviceSynchronize();
-	Rmodule_u.rightMul();
-	auto al_sh = std::move( Rmodule_u.getal() );
+	// this WORKS
+	auto al_sh = Rmodule.getal();
 	std::vector<float> tempal_sh(m*n);
 	cudaMemcpy(tempal_sh.data(), al_sh.get(), sizeof(float)*m*n, cudaMemcpyDeviceToHost);
 
 	// print c row by row
-	std::cout << "c_general: " << std::endl;
+	std::cout << "c, after Matrix Multiplication : " << std::endl;
 	for (i=0;i<m;i++){
 		for (j=0;j<n;j++) {
 			std::cout << tempal_sh[i +j*m] << " ";
 		}
 		std::cout << std::endl;
 	}
-
-
-//	rightMul(Rmodule_u);
-
-	// sanity check
-	std::vector<float> tempTheta(k*n); 
-	std::vector<float> tempb(n);
-//	std::vector<float> tempTheta; 
-//	std::vector<float> tempb;
-
-//	auto Thetaptr = std::move( Rmodule.getTheta() )
-//	cudaMemcpy(tempTheta.data(), Thetaptr.get(), sizeof(float) * k*n, cudaMemcpyDeviceToHost);
-
-	// sanity check
-	Rmodule.load_from_d(tempTheta, tempb);
-	for (auto ele : tempTheta) { std::cout << ele << " "; } std::cout << std::endl << std::endl;
-	for (auto ele : tempb) { std::cout << ele << " "; } std::cout << std::endl; 
-
-
-	Rmodule.rightMul();
-
-	auto a_sh = std::move( Rmodule.getalm1() );  
-	auto b_sh = std::move( Rmodule.getTheta() );
-	auto c_sh = std::move( Rmodule.getal() );
 	
-/*	Prod_sh( m,n,k, 1.0f, a_sh, b_sh, 
-		0.f, c_sh ); */ // needs smartCUBLAS
-		
+	al_sh.reset();
 
-	std::vector<float> tempal(m*n);
-	cudaMemcpy(tempal.data(), c_sh.get(), sizeof(float)*m*n, cudaMemcpyDeviceToHost);
+	Rmodule.addb(128);
 
-	// print c row by row
-	std::cout << "c_sh: " << std::endl;
+	auto al_bias = Rmodule.getal();
+	std::vector<float> tempal_bias(m*n);
+	cudaMemcpy(tempal_bias.data(), al_bias.get(), sizeof(float)*m*n, cudaMemcpyDeviceToHost);
+	// print c, after adding bias, row by row
+	std::cout << "c, after adding bias : " << std::endl;
 	for (i=0;i<m;i++){
 		for (j=0;j<n;j++) {
-			std::cout << tempal[i +j*m] << " ";
+			std::cout << tempal_bias[i +j*m] << " ";
 		}
 		std::cout << std::endl;
 	}
 
+	/* ========================= Axon_act ========================= */
 
-	// I loaded the above 4 commands into member function rightMul of Axon_sh
-//	Rmodule.rightMul();
+	std::cout << std::endl << " Doing it for Axon_act class : " << std::endl << std::endl;
+
+	Axon_act Rmodule_act(k,n,0); // 0 for identity
 	
+	Rmodule_act.load_from_hvec(b,b_vec);
+	Rmodule_act.load_from_hXvec(a,m);
+	Rmodule_act.init_zlal(m);
+	Rmodule_act.rightMul();
+
+	// this WORKS
+/*	auto zl_ptr = Rmodule_act.getzl();
+	std::vector<float> tempzl_act(m*n, 1.f);
+	cudaMemcpy(tempzl_act.data(), zl_ptr.get(), sizeof(float)*m*n, cudaMemcpyDeviceToHost);
+	std::cout << "z^l, after matrix multiplication  : " << std::endl;
+	for (i=0;i<m;i++){
+		for (j=0;j<n;j++) {
+			std::cout << tempzl_act[i +j*m] << " ";
+		}
+		std::cout << std::endl;
+	}
+*/
+
+	Rmodule_act.addb(128);
+	Rmodule_act.actf(128);
+	Rmodule_act.do_Dpsi(128);
+
+	auto al_ptr = Rmodule_act.getal();
+	std::vector<float> al_vec(m*n, 1.1f);
+	cudaMemcpy(al_vec.data(), al_ptr.get(), sizeof(float)*m*n, cudaMemcpyDeviceToHost);
+	for (i=0;i<m;i++){
+		for (j=0;j<n;j++) {
+			std::cout << al_vec[i +j*m] << " ";
+		}
+		std::cout << std::endl;
+	}
+	
+	auto Dpsi_ptr = Rmodule_act.getDpsil();
+	cudaMemcpy(al_vec.data(), Dpsi_ptr.get(), sizeof(float)*m*n, cudaMemcpyDeviceToHost);
+	for (i=0;i<m;i++){
+		for (j=0;j<n;j++) {
+			std::cout << al_vec[i +j*m] << " ";
+		}
+		std::cout << std::endl;
+	}
+
 }
