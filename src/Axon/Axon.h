@@ -49,7 +49,6 @@ struct deleterRR_struct
 		cudaFree(ptr);
 	}
 };
-
 /* =============== END of custom deleters =============== */
 
 /* =============== CUDA kernel functions =============== */
@@ -138,8 +137,6 @@ class Axon
 
 		/* "layers" a^{l-1}, a^l, i.e. alm1, al
 		 * treat as shared_ptr because other Axons would want to point to them */
-
-		// "layers" a^{l-1}, a^l, i.e. alm1, al
 		std::shared_ptr<float> alm1;
 		std::shared_ptr<float> al;
 
@@ -271,6 +268,10 @@ class Axon_act : public Axon
 		// intermediate "layer" zl 
 		std::unique_ptr<float[], deleterRR_struct> zl;
 
+		// partial derivatives of the so-called "activation-layer" with respecet to zl
+		std::unique_ptr<float[], deleterRR_struct> Dpsil; 
+
+
 	public:
 		// Constructor
 		/** 
@@ -306,8 +307,12 @@ class Axon_act : public Axon
 		 * */
 		void init_zlal(const int);
 
-		// for getting (and moving back) Theta,b, and lth layer al, zl (after activation function applied)
+		// for getting lth layer, zl (after activation function applied)
 		std::unique_ptr<float[],deleterRR_struct> getzl();
+
+		// for getting lth layer Dzl (after activation function applied)
+		std::unique_ptr<float[],deleterRR_struct> getDpsil();
+
 
 
 		/* =============== "connect" the Axon =============== */
@@ -325,6 +330,10 @@ class Axon_act : public Axon
 
 		/* ========== activate with activation function ========== */
 		void actf( const int M_x, const int N_x=0); 
+		
+		/* ========== partial derivatives with respect to z^l of psi^l(z^l) ========== */
+		void do_Dpsi( const int M_x, const int N_x=0);  
+		
 		
 };
 
