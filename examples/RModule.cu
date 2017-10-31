@@ -145,6 +145,21 @@ int main(int argc, char* argv[]) {
 		std::cout << std::endl;
 	}
 
+	/* =============== troubleshooting adding bias b =============== */
+
+	// sanity check on bias b
+	auto gettingb = Rmodule.getb();
+	std::vector<float> tempbias(n);
+	cudaMemcpy(tempbias.data(), gettingb.get(), sizeof(float)*n, cudaMemcpyDeviceToHost);
+	// print b, after adding bias, row by row
+	std::cout << "bias b, after adding bias : " << std::endl;
+	for (j=0;j<n;j++) {
+		std::cout << tempbias[j] << " ";
+	}
+	std::cout << std::endl;
+
+	
+
 	/* ========================= Axon_act ========================= */
 
 	std::cout << std::endl << " Doing it for Axon_act class : " << std::endl << std::endl;
