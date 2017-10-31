@@ -23,55 +23,19 @@
  * */
 /* 
  * COMPILATION TIP
- * nvcc -std=c++14 -lcublas ../src/FileIO/FileIO.cpp ../src/Axon/Axon.o ../src/smartptr/smartptr.cu ../src/Feedfwd/Feedfwd.cu linreg.cu -o linreg.exe
- * nvcc -arch='sm_52' -std=c++14 -lcublas ../src/Feedfwd/Axon.o ../src/Feedfwd/activationf.o ../src/Feedfwd/Feedfwd.o ../src/FileIO/FileIO.cpp ../src/smartptr/smartptr.cu linreg.cu -o linreg.exe
+ * First do, in cuBlackDream/src/Feedfwd/ folder, 
+ * nvcc -std=c++14 -arch='sm_52' -lcublas -dc ../Axon/Axon.cu ../Axon/activationf.cu Feedfwd.cu
+ * 
+ * Then, in the folder of this, linreg.cu, do the following:
+ * nvcc -arch='sm_52' -std=c++14 -lcublas ../src/Feedfwd/Axon.o ../src/Feedfwd/activationf.o ../src/Feedfwd/Feedfwd.o 
+ * 	../src/FileIO/FileIO.cpp linreg.cu -o linreg.exe
  * */
  
 #include "../src/FileIO/FileIO.h"			// csv2fvec
-#include "../src/Axon/Axon.h"				// Axon
-#include "../src/smartptr/smartptr.h"		// smartptr::RRModule
 #include "../src/Feedfwd/Feedfwd.h"			// LinReg
 
 #include <stdio.h> // printf
 
-/** 
- *  @fn addb_explicit
- *  @brief I explicitly show how to add bias to the "output" layer
- *  @details Given (a_l)_i^{\  \  j} \in \text{Mat}_{\mathbb{R}}(m, s_l), 
- * 				we want to add a bias b, but along the "columns", b=b^j
- * 				assume (a_l) is COLUMN-major ordered.  
- *  			it is reasonable to assume m > s_l 
- * 				(i.e. number of rows, m, also representing the number of input examples, 
- * 				s_l = size dims. of "layer" l, a_l, or number of "nodes" of a_l
- * */
-
-__global__ void addb_explicit(const int m, const int s_l, float* a_l, const float* b) {
-	int k = threadIdx.x + blockDim.x * blockIdx.x ; // k is global thread index 
-
-	// assume COLUMN-major ordering 
-//	int i = k % m; 	// this the ith index in a matrix a_l(i,j)
-	int j = k/m; 	// this is the jth index in matrix a_l(i,j)
-
-	__shared__ float sh_bj[1]; // shared bj, jth component of b
-	
-	if ( j >= s_l) // check if j is access element outside of b\in \mathbb{R}^{s_l}
-	{ return; } else { 
-		sh_bj[0] = b[j]; 
-	}
-	int SIZEDIM_A_L = m*s_l;
-	/* check if we've launched too many threads than needed to compute
-	 * over all of s_l \in \text{Mat}_{\mathbb{R}}(m,s_l) - this could be the case 
-	 * given arbitrary thread blocks launched in <<<>>>
-	 * */
-	if (k >= SIZEDIM_A_L)  
-	{
-		return ; 
-	}
-	__syncthreads();
-	
-	a_l[k] = a_l[k] + sh_bj[0];
-	
-}
 
 int main(int argc, char* argv[]) { 
 	/** ==================== timing CUDA operations ==================== 
@@ -101,7 +65,6 @@ int main(int argc, char* argv[]) {
 	
 	// notice that both X_ex1data1, y_ex1data1 are row-major ordered.  We want column-major ordering for CUBLAS
 	
-	
 		
 	int d = X_ex1data1[0].size(); // number of features
 	int K = y_ex1data1[0].size(); // dim. of output
@@ -127,7 +90,7 @@ int main(int argc, char* argv[]) {
 	std::vector<float> X_ex1data1_colmaj = h_flatten_colmaj( X_ex1data1 );
 	auto y_ex1data1_colmaj = h_flatten_colmaj( y_ex1data1 ); 
 	
-	Axon Thetab(d,K);
+
 	// Initialize fitting parameters with 0
 	std::vector<float> h_Theta(d*K, 0.f);
 	std::vector<float> h_b(K,0.f );
@@ -135,109 +98,22 @@ int main(int argc, char* argv[]) {
 	h_Thetab.push_back(h_Theta);
 	h_Thetab.push_back(h_b);
 
-	Thetab.load_from_hvec(h_Theta,h_b);	// load the initial values of Theta, b
-	Thetab.load_from_hXvec(X_ex1data1_colmaj,m); // load the X data
-	Thetab.init_al(m);	// initialize the output layer
-
-
-	/* ========== Compute cost functional J and residuals ========== */
-	Thetab.rightMul();
-
-	/* ========== Add bias ========== */
-	
-	/* ===== explicit implementation ===== */
-	// this WORKS
-/*	auto al = Thetab.getal();
-	auto b = Thetab.getb();
-	auto sizeDims = Thetab.getSizeDims();
-	int SIZEDIM_A_L = m* sizeDims[1];
-	int M_x = 128; // number of threads in a single thread block in x-direction
-	addb_explicit<<<(SIZEDIM_A_L + M_x -1)/M_x, M_x>>>( m, sizeDims[1], al.get(), b.get());
-*/
-	int M_x = 128; // number of threads in a single thread block in x-direction
-	Thetab.addb(M_x);
-
-	// wrap up the y data
-	smartptr::RRModule ptr_y( m*K);
-	ptr_y.load_from_hvec( y_ex1data1_colmaj);
-
-// this WORKS	
-//	auto res = ptr_y.get(); // residual
-	auto yhat = Thetab.getal();
-	// custom deleter as a STRUCT for cublasHandle 
-	struct del_cublasHandle_struct {
-		void operator()(cublasHandle_t* ptr) { cublasDestroy(*ptr); }
-	};
-	
-	std::unique_ptr<cublasHandle_t,del_cublasHandle_struct> handle_u(
-		new cublasHandle_t);
-	cublasCreate(handle_u.get());	
-	
-	// this WORKS
-//	float a1 = -1.0f;
-	const int SIZEDIM_Y = m*K;
-
-
-
-	std::unique_ptr<float[], deleterRR_struct> res(new float[SIZEDIM_Y], deleterRR_struct());
-	cudaMallocManaged((void **) &res, SIZEDIM_Y*sizeof(float));
-	float a1 = 1.0f;
-	float bet = -1.0f; 
-	cublasSgeam(*handle_u.get(), 
-		CUBLAS_OP_N, CUBLAS_OP_N, m, K, &a1, 
-		yhat.get(), 
-//		m, &bet, y_data.get(), m, 
-		m, &bet, ptr_y.get().get(), m, 
-		res.get(), m );
-
-
-	// this WORKS
-//	cublasSaxpy(*handle_u.get(), SIZEDIM_Y, &a1, yhat.get(), 1, res.get(), 1); 
-
-
-	float costJ=0.f;
-	cublasSnrm2(*handle_u.get(), SIZEDIM_Y, res.get(), 1, &costJ);
-	costJ = 0.5f*costJ*costJ/ ((float) m);
-	
-	std::cout << " costJ : " << costJ << std::endl;
-	
-	auto a0 = Thetab.getalm1();
-	
-//	cublasSgemm(*handle_u.get(), CUBLAS_OP_T, CUBLAS_OP_N,d,K,m,&a1, a0.get(), 
-
-	// WORKS but...
-//	std::vector<Axon> axons;
-	// DOES NOT WORK
-//	axons.push_back(Thetab);
-	// DOES NOT WORK
-//	std::vector<Axon> axons = { Thetab };
 	
 	std::vector<int> FFsizeDims = { d,K }; 
 
 	LinReg linreg( FFsizeDims );
 
+
 	linreg.load_from_hThetaBs(h_Thetab);
 	linreg.load_y_from_hvec(y_ex1data1_colmaj);
 
-	// sanity check
-	for (auto ele : y_ex1data1_colmaj) { std::cout << ele << " " ; } std::cout << std::endl;
 
 	std::cout << " SIZE_X = h_Xvec.size() : " << X_ex1data1_colmaj.size() << std::endl;
-//	for (auto ele : X_ex1data1_colmaj) { std::cout << ele << " "; }
+
 
 	linreg.load_X_from_hvec(X_ex1data1_colmaj, m );
 
-	linreg.feedfwd();
-
-	/* this WORKS
-	auto ycheck= std::move( linreg.gety() );
-//	auto ycheck = linreg.gety();
-
-	std::vector<float> hycheck(SIZEDIM_Y,0.f);
-	cudaMemcpy(hycheck.data(), ycheck.get(), SIZEDIM_Y *sizeof(float),cudaMemcpyDeviceToHost);
-	for (auto ele : hycheck) { 
-		std::cout << ele << " " ; } std::cout << std::endl;
-*/
+	linreg.feedfwd(128);
 
 	float result_linregcost = 0.f; 
 	result_linregcost = linreg.compute_costJ_L2norm();
@@ -246,7 +122,7 @@ int main(int argc, char* argv[]) {
 
 
 	// this single line of code WORKS
-//	linreg.grad_desc_step(0.01f, 128);
+	linreg.grad_desc_step(0.01f, 128);
 
 	/* sanity check of 1 gradient descent  
 	 * this (block of code) WORKS
@@ -260,10 +136,60 @@ int main(int argc, char* argv[]) {
 	std::cout << " hTheta1 : " << hTheta1[0] << " " << std::endl;
 	std::cout << " hb1 : " << hb1[0] << " " << std::endl;
 */
+	
+	/* ===== check if dJ/db calculation works ===== */
+	// in this scope, make res to store results from taking the difference
+	/* it WORKS /*
+	struct del_cublasHandle_struct {
+		void operator()(cublasHandle_t* ptr) { cublasDestroy(*ptr); }
+	};
+	const int SIZE_Y= K * m; 
+	std::unique_ptr<cublasHandle_t,del_cublasHandle_struct> handle_u(
+		new cublasHandle_t);
+	cublasCreate(handle_u.get());	
+	std::unique_ptr<float[], deleterRR_struct> res(new float[SIZE_Y], deleterRR_struct());
+	cudaMallocManaged((void **) &res, SIZE_Y*sizeof(float));
+	float a1 = 1.0f;
+	float bet = -1.0f; 
+	auto yhat = linreg.getal(1); // L+1 - 2 = L-1 which is the last axon, when counting from 0, 0,1,...L-1
+	auto y = std::move(linreg.gety());
+	cublasSgeam(*handle_u.get(), 
+		CUBLAS_OP_N, CUBLAS_OP_N, m, K, &a1, 
+		yhat.get(), m, &bet, y.get(), m, 
+		res.get(), m );
+	std::vector<float> hres( SIZE_Y, 2.0f);
+	cudaMemcpy(hres.data(), res.get(), m*K*sizeof(float), cudaMemcpyDeviceToHost);
+	for (auto ele : hres) { std::cout << ele << " "; }  std::cout << std::endl << std::endl;
+	a1 = 1.0f/ ((float) m);
+	bet = 0.f;
+	const int SIZE_dB = K;
+	std::unique_ptr<float[], deleterRR_struct> dB(new float[SIZE_dB], deleterRR_struct());
+	cudaMallocManaged((void **) &dB, SIZE_dB*sizeof(float));
+	// create 1s array, array of 1s
+	const int SIZE_ONES = m;
+	std::unique_ptr<float[], deleterRR_struct> ones(new float[SIZE_ONES], deleterRR_struct());
+	cudaMallocManaged((void **) &ones, SIZE_ONES*sizeof(float));
+	int Mx=128;
+	int Nx = (SIZE_ONES + Mx - 1)/Mx; 
+//	if ( MAX_SIZE_1DARR < SIZE_ONES ) {
+//		Nx = (MAX_SIZE_1DARR + Mx - 1) / Mx ; } 
+	setconstval_kernel<<<Nx,Mx>>>(m,1.0f, ones.get() );
+	// this is a clever way to do summation
+	cublasSgemm(*handle_u.get(), CUBLAS_OP_N, CUBLAS_OP_N, 1,K,m, 
+		&a1, ones.get(), 1, res.get(), m, 
+		&bet, dB.get(), 1); 
+	std::vector<float> hones( m, 2.5f);
+	std::vector<float> hdB( K, 2.5f);
+	cudaMemcpy(hdB.data(), dB.get(), K*sizeof(float), cudaMemcpyDeviceToHost);
+	cudaMemcpy(hones.data(), ones.get(), m*sizeof(float), cudaMemcpyDeviceToHost);
+	for (auto ele : hdB) { std::cout << ele << " "; } std::cout << std::endl << std::endl;
+	for (auto ele : hones) { std::cout << ele << " "; } std::cout << std::endl << std::endl;
+*/
+	
 
 	// this code WORKS
 	cudaEventRecord(starttiming,0);
-	linreg.grad_desc(1500,0.01f, 128);
+	linreg.grad_desc(1500,0.01f, 256);
 	cudaEventRecord(stoptiming,0);
 	cudaEventSynchronize(stoptiming);
 	cudaEventElapsedTime(&timeinterval, starttiming,stoptiming);

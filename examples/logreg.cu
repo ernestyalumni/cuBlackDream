@@ -34,8 +34,18 @@
 
 #include "../src/Axon/activationf.h"
 
+#include <stdio.h> // printf
+
  
 int main(int argc, char* argv[]) { 
+	/** ==================== timing CUDA operations ==================== 
+	 * @ref https://stackoverflow.com/questions/7876624/timing-cuda-operations
+	 * */
+	float timeinterval; 
+	cudaEvent_t starttiming, stoptiming;
+	cudaEventCreate(&starttiming);
+	cudaEventCreate(&stoptiming);
+
 
 	/* =============== ex2data1.txt =============== */ 
 	std::string filename_ex2data1 = "../data/ex2data1.txt";
@@ -112,7 +122,7 @@ int main(int argc, char* argv[]) {
 		std::cout << ele << " " ; } std::cout << std::endl;
 */
 
-	logreg.feedfwd(128);
+	logreg.feedfwd(256);
 	// sanity check
 	// it WORKS
 /*	auto alcheck = logreg.getal(1);
@@ -125,7 +135,87 @@ int main(int argc, char* argv[]) {
 	// sanity check
 	float result_logregcost = 0.f; 
 	result_logregcost = logreg.compute_costJ_xent(128);
-	std::cout << " costJ for cross-entropy function : " << result_logregcost << std::endl;
+	std::cout << " costJ for cross-entropy function, at initial theta (zeros) : " << result_logregcost << std::endl;
+	std::cout << " Expected cost (approx): 0.693" << std::endl; 
+
+	logreg.grad_desc_step(0.01f, 256);
+
+	/* sanity check of 1 gradient descent  
+	 * this (block of code) WORKS
+	 * */
+/*	auto Theta1 = std::move( logreg.getTheta(1) );
+	auto b1 = std::move( logreg.getb(1) );
+	std::vector<float> hTheta1(d*K,-1.f);
+	std::vector<float> hb1(K,-1.f);
+	cudaMemcpy(hTheta1.data(), Theta1.get(), d*K*sizeof(float), cudaMemcpyDeviceToHost);
+	cudaMemcpy(hb1.data(), b1.get(), K*sizeof(float), cudaMemcpyDeviceToHost);
+	std::cout << " hTheta1 : " << hTheta1[0] << " " << hTheta1[1] << std::endl;
+	std::cout << " hb1 : " << hb1[0] << " " << std::endl;
+*/
+
+	/* ========== Compute and display cost and gradient with non-zero theta ========== */
+	std::vector<float> h_testTheta { 0.2f, 0.2f }; 
+	std::vector<float> h_testb { -24.f };
+	std::vector<std::vector<float>> h_testThetab;
+	h_testThetab.push_back(h_testTheta);
+	h_testThetab.push_back(h_testb);
+
+	logreg.load_from_hThetaBs( h_testThetab);
+	logreg.feedfwd(256);
+	float result_testlogregcost = logreg.compute_costJ_xent(256);
+
+	std::cout << std::endl << " Cost at test theta: " << result_testlogregcost << std::endl;
+	std::cout << " Expected cost (approx): 0.218 " << std::endl; 
+
+	logreg.grad_desc_step(0.01f, 256);
+
+	/* sanity check of 1 gradient descent  
+	 * this (block of code) WORKS
+	 * */
+/*	auto Theta1 = std::move( logreg.getTheta(1) );
+	auto b1 = std::move( logreg.getb(1) );
+	std::vector<float> hTheta1(d*K,-1.f);
+	std::vector<float> hb1(K,-1.f);
+	cudaMemcpy(hTheta1.data(), Theta1.get(), d*K*sizeof(float), cudaMemcpyDeviceToHost);
+	cudaMemcpy(hb1.data(), b1.get(), K*sizeof(float), cudaMemcpyDeviceToHost);
+	std::cout << " hTheta1 : " << hTheta1[0] << " " << hTheta1[1] << std::endl;
+	std::cout << " hb1 : " << hb1[0] << " " << std::endl;
+*/
+	// fprintf('Expected gradients (approx):\n 0.043\n 2.566\n 2.647\n');
+	logreg.load_from_hThetaBs( h_Thetab);
+	logreg.feedfwd(256);
+
+
+	cudaEventRecord(starttiming,0);
+	logreg.grad_desc(1500000,0.0010f, 256);
+	cudaEventRecord(stoptiming,0);
+	cudaEventSynchronize(stoptiming);
+	cudaEventElapsedTime(&timeinterval, starttiming,stoptiming);
+	printf("Time to grad_desc 1500 iterations : %3.1f ms \n ", timeinterval);
+
+	result_testlogregcost = logreg.compute_costJ_xent(256);
+
+
+	std::cout << " Cost at theta found by grad desc: " << result_testlogregcost << std::endl; 
+	std::cout << " Expected cost (approx): 0.203 " << std::endl; 
+
+
+	/* sanity check of gradient descent  
+	 * this (block of code) WORKS
+	 * */
+	auto Theta1 = std::move( logreg.getTheta(1) );
+	auto b1 = std::move( logreg.getb(1) );
+	std::vector<float> hTheta1(d*K,0.f);
+	std::vector<float> hb1(K,0.f);
+	cudaMemcpy(hTheta1.data(), Theta1.get(), d*K*sizeof(float), cudaMemcpyDeviceToHost);
+	cudaMemcpy(hb1.data(), b1.get(), K*sizeof(float), cudaMemcpyDeviceToHost);
+	std::cout << " hTheta1 : " << hTheta1[0] << " " << hTheta1[1] << std::endl;
+	std::cout << " hb1 : " << hb1[0] << " " << std::endl;
+
+	// fprintf('Expected theta (approx):\n');
+	// fprintf(' -25.161\n 0.206\n 0.201\n');
+
+
 
 }
 
