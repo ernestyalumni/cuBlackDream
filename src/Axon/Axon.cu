@@ -30,6 +30,37 @@
 
 /* =============== CUDA kernel functions =============== */
 
+int get_max_device_array_size1d(const int idx_device) {
+	cudaDeviceProp prop;
+
+	int count;
+	cudaGetDeviceCount( &count );
+
+	if (count>0) {
+		cudaGetDeviceProperties( &prop, idx_device );
+		int MAX_SIZE = prop.maxGridSize[0];		
+		return MAX_SIZE;
+	} else {
+		return EXIT_FAILURE;
+	}
+}
+
+int get_max_threadblock_size1d(const int idx_device) {
+	cudaDeviceProp prop;
+
+	int count;
+	cudaGetDeviceCount( &count );
+
+	if (count>0) {
+		cudaGetDeviceProperties( &prop, idx_device );
+		int MAX_THREADSPERBLOCK = prop.maxThreadsPerBlock;		
+
+		return MAX_THREADSPERBLOCK;
+	} else {
+		return EXIT_FAILURE;
+	}	
+}
+
 /** @fn setconstval_kernel
  * 	@brief set a float array of length Lx all to values of const_val 
  * 	@details cudaMemset only sets an array to 0 value; we want value of 1
@@ -45,6 +76,64 @@ __global__ void setconstval_kernel(const int Lx, const float const_val, float* A
 	}
 }
 
+/** @fn addb
+ * 	@brief add bias 
+ * 	@note if this function was declared inside a class, as a class member, 
+ * 			I obtained:
+ * 			error: illegal combination of memory qualifiers 
+ * 	@details Given (a_l)_i^{\  \  j} \in \text{Mat}_{\mathbb{R}}(m, s_l), 
+ * 				we want to add a bias b, but along the "columns", b=b^j
+ * 				assume (a_l) is COLUMN-major ordered.  
+ *  			While it's reasonable to assume m > s_l 
+ * 				(i.e. number of rows, m, also representing the number of input examples, 
+ * 				s_l = size dims. of "layer" l, a_l, or number of "nodes" of a_l, 
+ * 				I made no assumptions (m=1, only 1 example for our model, possibly!) 
+ * 				and the appropriate grid, block dimensions are calculated in addb 
+ * */
+__global__ void addb_kernel(const int m, const int s_l, float* al,const float*b) {
+	int k_x = threadIdx.x + blockDim.x * blockIdx.x;
+	const int SIZE_A_L = m * s_l ;
+	
+	extern __shared__ float sh_bj[]; // shared b^j, jth component of b
+	
+	// assume COLUMN-major ordering
+	
+	for (int tid=k_x; tid < SIZE_A_L; tid += gridDim.x * blockDim.x ) { 
+		
+		/* kx=0,1,... K_x -1 
+		 * where K_x = (SIZE_A_L + gridDim.x*blockDim.x -1)/(gridDim.x*blockDim.x)
+		 * */
+		int kx = tid / (gridDim.x * blockDim.x); 
+		
+		if (threadIdx.x == 0) {
+			int j_min = tid/m; 
+			sh_bj[kx*2] = b[j_min]; 
+		}
+		else if (threadIdx.x == (blockDim.x -1) ) { 
+			int j_max = tid/m; 
+			sh_bj[kx*2+1] = b[j_max];
+		}
+	}
+	
+	if (k_x > SIZE_A_L) { return; }
+
+	__syncthreads();
+	
+	for (int tid=k_x; tid < SIZE_A_L; tid += gridDim.x * blockDim.x ) { 
+		int kx = tid / (gridDim.x * blockDim.x); 
+//		int tid_min = blockDim.x * blockIdx.x + kx * gridDim.x * blockDim.x ; 
+		int tid_max = blockDim.x * (blockIdx.x + 1) -1 + kx * gridDim.x * blockDim.x ; 
+		
+		int j = tid/m; 
+		if (j == tid_max/m ) { 
+			al[tid] = al[tid] + sh_bj[kx*2+1]; 
+		} else {
+			al[tid] = al[tid] + sh_bj[kx*2]; 
+		}
+		
+	}
+}
+
 
 /* ==================== Axon classes ==================== */
 
@@ -52,7 +141,7 @@ __global__ void setconstval_kernel(const int Lx, const float const_val, float* A
 
 
 // constructor 
-Axon::Axon(const int s_lm1,const int s_l) : s_lm1(s_lm1), s_l(s_l)  {
+Axon::Axon(const int s_lm1,const int s_l, const int idx_device) : s_lm1(s_lm1), s_l(s_l)  {
 	const int SIZE_THETA = s_l*s_lm1;
 
 	std::unique_ptr<float[], deleterRR_struct> d_Theta(new float[SIZE_THETA]);
@@ -62,6 +151,12 @@ Axon::Axon(const int s_lm1,const int s_l) : s_lm1(s_lm1), s_l(s_l)  {
 	std::unique_ptr<float[], deleterRR_struct> d_b(new float[s_l]);
 	cudaMallocManaged((void **) &d_b,s_l*sizeof(float));
 	b = std::move(d_b);
+
+	MAX_SIZE_1DARR = get_max_device_array_size1d(idx_device); 
+
+	MAX_THREADBLOCK = get_max_threadblock_size1d(idx_device);
+
+
 }
 
 // Move Constructor
@@ -77,6 +172,9 @@ Axon::Axon(Axon&& old_axon) : Theta(std::move(old_axon.Theta)), b(std::move(old_
 	s_lm1 = old_axon.s_lm1;
 	s_l = old_axon.s_l;
 	m = old_axon.m;
+
+	MAX_SIZE_1DARR = old_axon.MAX_SIZE_1DARR ;  
+	MAX_THREADBLOCK = old_axon.MAX_THREADBLOCK;
 	
 	l = old_axon.l; // lth layer
 	
@@ -89,6 +187,10 @@ Axon & Axon::operator=(Axon && old_axon) {
 	s_lm1 = old_axon.s_lm1;
 	s_l = old_axon.s_l;
 	m = old_axon.m;
+
+	MAX_SIZE_1DARR = old_axon.MAX_SIZE_1DARR ;  
+	MAX_THREADBLOCK = old_axon.MAX_THREADBLOCK;
+
 	
 	l = old_axon.l; // lth layer
 
@@ -104,6 +206,10 @@ Axon & Axon::operator=(Axon && old_axon) {
 }
 
 // member functions
+/**
+ * 	@fn Axon::load_from_hvec 
+ * 	@brief (Theta,b) on host -> (Theta,b) on device GPU 
+ * */
 void Axon::load_from_hvec(std::vector<float>& h_Theta,std::vector<float>& h_b) {
 	const int SIZE_THETA = s_l*s_lm1;
 
@@ -266,48 +372,30 @@ void Axon::rightMul() {
  * 	@fn Axon::addb
  * 	@param const int N_x = number of (thread) blocks on grid in x-direction
  *  @param const int M_x = number of threads in a (single, thread) block in x-direction
- * 	@details N_x, M_x determined before by feedfwd class
+ * 	@details N_x, M_x 
  * */
-void Axon::addb(const int M_x,const int N_x ) {
+void Axon::addb(const int M_x) {
 
 	/* ===== grid, thread block size dimensions ===== */
 	const int SIZE_A_L = m * s_l; // m * s_l = (number of examples)*(size dim. or no. of nodes of lth layer)
+
+	int Mx = M_x;
+	if (m < Mx) {
+		int p = ((int) log2(m));
+		Mx = pow(2,p);
+	} 
+	int Nx = (SIZE_A_L + Mx - 1)/ Mx; 
+	if ( MAX_SIZE_1DARR < SIZE_A_L) {
+		Nx = (MAX_SIZE_1DARR + Mx - 1)/Mx;
+	}	
 	
-	// M_x = number of threads in a (single) block in x-direction
-	int Nx = 0;
-	if (N_x == 0) { 
-		const int Nx_calc = (SIZE_A_L + M_x -1)/M_x;
-		Nx = max( Nx_calc, N_x);
-	} else {
-		Nx = N_x;
-	}
-
-	// create 1s array, array of 1s
-	std::unique_ptr<float[], deleterRR_struct> ones(new float[SIZE_A_L], deleterRR_struct());
-	cudaMallocManaged((void **) &ones, SIZE_A_L*sizeof(float));
-
-	setconstval_kernel<<<Nx,M_x>>>(SIZE_A_L,1.0f, ones.get() );
-
-	// create "broadcasted" array for bias b
-	std::unique_ptr<float[], deleterRR_struct> broadcast_b(new float[SIZE_A_L], deleterRR_struct());
-	cudaMallocManaged((void **) &broadcast_b, SIZE_A_L*sizeof(float));
-
-	std::unique_ptr<cublasHandle_t,del_cublasHandle_struct> handle_u(
-		new cublasHandle_t);
-	cublasCreate(handle_u.get());	
-
-	// C = A x diag(X)
-	cublasSdgmm( *handle_u.get(), CUBLAS_SIDE_RIGHT, 
-		m, s_l, ones.get(), m, b.get(), 1, broadcast_b.get(), m);
-
-	// C = \alpha op(A) + \beta op(B)
-	float a1 = 1.0f; 
-	float bet = 1.0f;
-	cublasSgeam(*handle_u.get(), CUBLAS_OP_N, CUBLAS_OP_N, 
-		m, s_l, 
-		&a1, broadcast_b.get(), m, &bet, al.get(), m, 
-		al.get(), m);
-
+	/* to calculate how much shared memory needed; remember, 
+	 * since each thread block could possible have matrix entries A(i,j) from 2 different columns
+	 * 2 distinct j, we'll need to multiply by 2 */
+	int K_x = ( SIZE_A_L + (Nx * Mx) - 1 )/ (Nx * Mx) ;
+	
+	// 3rd paramemter inside <<<>>> is for allocating array of K_x floats in shared memory
+	addb_kernel<<<Nx,Mx, sizeof(float)*K_x*2>>>(m, s_l, al.get(), b.get());
 
 }
 	
@@ -319,8 +407,9 @@ Axon::~Axon() {}
 
 /* =============== Axon class; with activation =============== */
 // Constructor
-Axon_act::Axon_act(const int s_lm1,const int s_l, const int idx_actf) : 
-		Axon(s_lm1, s_l), idx_actf(idx_actf) { }
+Axon_act::Axon_act(const int s_lm1,const int s_l, const int idx_actf, 
+						const int idx_device) : 
+		Axon(s_lm1, s_l, idx_device), idx_actf(idx_actf) { }
 
 // Move Constructor
 /**
@@ -356,7 +445,7 @@ Axon_act & Axon_act::operator=(Axon_act && old_axon)
 // initialize layer l
 /**
  * 	@fn init_zlal 
- * 	@brief initialize layer l
+ * 	@brief initialize layer l, and calculate grid, thread block dimensions  
  *  @param const int m - number of examples
  * */
 void Axon_act::init_zlal(const int m) { 
@@ -372,6 +461,13 @@ void Axon_act::init_zlal(const int m) {
 	zl = std::move(d_zl);
 
 	this->m = m;
+
+}
+
+
+void Axon_act::move2Dpsil_from_ptr(std::unique_ptr<float[], deleterRR_struct> & ptr_Dpsil) 
+{
+	Dpsil = std::move( ptr_Dpsil );
 }
 
 // for getting Theta,b, and lth layer al, zl (after activation function applied)
@@ -418,45 +514,29 @@ void Axon_act::rightMul() {
  *  @param const int M_x = number of threads in a (single, thread) block in x-direction
  * 	@details N_x, M_x determined before by feedfwd class
  * */
-void Axon_act::addb(const int M_x, const int N_x) {
+void Axon_act::addb(const int M_x) {
 
 	/* ===== grid, thread block size dimensions ===== */
-	const int SIZE_Z_L = m * s_l; // m * s_l = (number of examples)*(size dim. or no. of nodes of lth layer)
+	const int SIZE_A_L = m * s_l; // m * s_l = (number of examples)*(size dim. or no. of nodes of lth layer)
+
+	int Mx = M_x;
+	if (m < Mx) {
+		int p = ((int) log2(m));
+		Mx = pow(2,p);
+	} 
+
+	int Nx = (SIZE_A_L + Mx - 1)/ Mx; 
+	if ( MAX_SIZE_1DARR < SIZE_A_L) {
+		Nx = (MAX_SIZE_1DARR + Mx - 1)/Mx;
+	}	
+
+	/* to calculate how much shared memory needed; remember, 
+	 * since each thread block could possible have matrix entries A(i,j) from 2 different columns
+	 * 2 distinct j, we'll need to multiply by 2 */
+	int K_x = ( SIZE_A_L + (Nx * Mx) - 1 )/ (Nx * Mx) ;
 	
-	// M_x = number of threads in a (single) block in x-direction
-	int Nx = 0;
-	if (N_x == 0) { 
-		const int Nx_calc = (SIZE_Z_L + M_x -1)/M_x;
-		Nx = max( Nx_calc, N_x);
-	} else {
-		Nx = N_x;
-	}
-
-	// create 1s array, array of 1s
-	std::unique_ptr<float[], deleterRR_struct> ones(new float[SIZE_Z_L], deleterRR_struct());
-	cudaMallocManaged((void **) &ones, SIZE_Z_L*sizeof(float));
-
-	setconstval_kernel<<<Nx,M_x>>>(SIZE_Z_L,1.0f, ones.get() );
-
-	// create "broadcasted" array for bias b
-	std::unique_ptr<float[], deleterRR_struct> broadcast_b(new float[SIZE_Z_L], deleterRR_struct());
-	cudaMallocManaged((void **) &broadcast_b, SIZE_Z_L*sizeof(float));
-
-	std::unique_ptr<cublasHandle_t,del_cublasHandle_struct> handle_u(
-		new cublasHandle_t);
-	cublasCreate(handle_u.get());	
-
-	// C = A x diag(X)
-	cublasSdgmm( *handle_u.get(), CUBLAS_SIDE_RIGHT, 
-		m, s_l, ones.get(), m, b.get(), 1, broadcast_b.get(), m);
-
-	// C = \alpha op(A) + \beta op(B)
-	float a1 = 1.0f; 
-	float bet = 1.0f;
-	cublasSgeam(*handle_u.get(), CUBLAS_OP_N, CUBLAS_OP_N, 
-		m, s_l, 
-		&a1, broadcast_b.get(), m, &bet, zl.get(), m, 
-		zl.get(), m);
+	// 3rd paramemter inside <<<>>> is for allocating array of K_x floats in shared memory
+	addb_kernel<<<Nx,Mx, sizeof(float)*K_x*2>>>(m, s_l, zl.get(), b.get());
 
 }
 
@@ -466,9 +546,9 @@ void Axon_act::actf( const int M_x, const int N_x) {
 	/* ===== grid, thread block size dimensions ===== */
 	const int SIZE_Z_L = m * s_l; // m * s_l = (number of examples)*(size dim. or no. of nodes of lth layer)
 
-	cudaMemcpy(al.get(), zl.get(), sizeof(float) * SIZE_Z_L, cudaMemcpyDeviceToDevice) ; 
 	
 	// M_x = number of threads in a (single) block in x-direction
+
 	int Nx = 0;
 	if (N_x == 0) { 
 		const int Nx_calc = (SIZE_Z_L + M_x -1)/M_x;
@@ -476,6 +556,14 @@ void Axon_act::actf( const int M_x, const int N_x) {
 	} else {
 		Nx = N_x;
 	}
+
+	if ( MAX_SIZE_1DARR < SIZE_Z_L) {
+		Nx = (MAX_SIZE_1DARR + M_x - 1)/M_x;
+	}	
+	/* ===== END of grid, thread block size dims. ===== */
+
+	cudaMemcpy(al.get(), zl.get(), sizeof(float) * SIZE_Z_L, cudaMemcpyDeviceToDevice) ; 
+
 
 	/** using array of function ptr doesn't work because it has to be located to device code and, refer here: 
 	 * @ref http://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#function-pointers
@@ -511,8 +599,7 @@ void Axon_act::do_Dpsi( const int M_x, const int N_x) {
 
 
 	/* ===== grid, thread block size dimensions ===== */
-	cudaMemcpy(d_Dpsi.get(), zl.get(), sizeof(float) * SIZE_Z_L, cudaMemcpyDeviceToDevice) ; 
-	
+
 	// M_x = number of threads in a (single) block in x-direction
 	int Nx = 0;
 	if (N_x == 0) { 
@@ -521,6 +608,14 @@ void Axon_act::do_Dpsi( const int M_x, const int N_x) {
 	} else {
 		Nx = N_x;
 	}
+
+	if ( MAX_SIZE_1DARR < SIZE_Z_L) {
+		Nx = (MAX_SIZE_1DARR + M_x - 1)/M_x;
+	}	
+	/* ===== END of grid, thread block size dims. ===== */
+
+	cudaMemcpy(d_Dpsi.get(), zl.get(), sizeof(float) * SIZE_Z_L, cudaMemcpyDeviceToDevice) ; 
+
 
 	/** using array of function ptr doesn't work because it has to be located to device code and, refer here: 
 	 * @ref http://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html#function-pointers

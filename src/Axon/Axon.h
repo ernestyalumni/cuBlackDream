@@ -25,7 +25,7 @@
  * */
 /* 
  * COMPILATION TIP
- * nvcc -std=c++14 -lcublas -dc Axon.cu -o Axon.o
+ * nvcc -std=c++14 -lcublas -dc Axon.cu activationf.cu 
  * 
  * */
 #ifndef __AXON_H__
@@ -33,6 +33,7 @@
 
 #include <memory>  // std::shared_ptr, std::unique_ptr 
 #include <vector>  // std::vector
+#include <cmath>	// log2, pow
 
 #include "activationf.h" 
 
@@ -53,11 +54,34 @@ struct deleterRR_struct
 
 /* =============== CUDA kernel functions =============== */
 
+int get_max_device_array_size1d(const int);
+
+int get_max_threadblock_size1d(const int);
+
+
 /** @fn setconstval_kernel
  * 	@brief set a float array of length Lx all to values of const_val 
  * 	@details cudaMemset only sets an array to 0 value; we want value of 1
  * */
 __global__ void setconstval_kernel(const int, const float, float*);
+
+
+/** @fn addb
+ * 	@brief add bias 
+ * 	@note if this function was declared inside a class, as a class member, 
+ * 			I obtained:
+ * 			error: illegal combination of memory qualifiers 
+ * 	@details Given (a_l)_i^{\  \  j} \in \text{Mat}_{\mathbb{R}}(m, s_l), 
+ * 				we want to add a bias b, but along the "columns", b=b^j
+ * 				assume (a_l) is COLUMN-major ordered.  
+ *  			While it's reasonable to assume m > s_l 
+ * 				(i.e. number of rows, m, also representing the number of input examples, 
+ * 				s_l = size dims. of "layer" l, a_l, or number of "nodes" of a_l, 
+ * 				I made no assumptions (m=1, only 1 example for our model, possibly!) 
+ * 				and the appropriate grid, block dimensions are calculated in addb 
+ * */
+__global__ void addb_kernel(const int, const int, float*,const float*);
+
 
 /* =============== note on activation function =============== */
 /*
@@ -93,6 +117,11 @@ class Axon
 
 		int m; // number of examples, m
 
+		// this is used to calculate if have enough threads
+		int MAX_SIZE_1DARR; // maximum device grid size in x-dimension
+
+		int MAX_THREADBLOCK; // maximum number of threads in a (single thread) block
+
 		// custom deleter as a STRUCT for cublasHandle 
 		struct del_cublasHandle_struct {
 			void operator()(cublasHandle_t* ptr) { cublasDestroy(*ptr); }
@@ -114,7 +143,7 @@ class Axon
 
 	public:
 		// Constructor
-		Axon(const int s_lm1, const int s_l);
+		Axon(const int s_lm1, const int s_l, const int idx_device=0);
 
 		// Move Constructor
 		/**
@@ -132,6 +161,10 @@ class Axon
 		
 		// member functions
 		// for loading given values onto Theta, b
+		/**
+		 * 	@fn Axon::load_from_hvec 
+		 * 	@brief (Theta,b) on host -> (Theta,b) on device GPU 
+		 * */
 		void load_from_hvec(std::vector<float>&,std::vector<float>& );
 		
 		/**
@@ -225,7 +258,7 @@ class Axon
 		virtual void rightMul(); 
 
 		/* ========== Add bias ========== */
-		virtual void addb(const int M_x, const int N_x=0);
+		virtual void addb(const int M_x=128);
 
 		// destructor
 		~Axon();			
@@ -267,7 +300,7 @@ class Axon_act : public Axon
 		 * https://msdn.microsoft.com/en-us/library/s16xw1a8.aspx
 		 *  @details 
 		 * */
-		Axon_act(const int s_lm1, const int s_l, const int idx_actf);
+		Axon_act(const int s_lm1, const int s_l, const int idx_actf, const int idx_device=0);
 
 		// Move Constructor
 		/**
@@ -291,6 +324,9 @@ class Axon_act : public Axon
 		 * */
 		void init_zlal(const int);
 
+		// for moving back Dpsi^l/dz^l, because it was needed to calculate gradient 
+		void move2Dpsil_from_ptr(std::unique_ptr<float[], deleterRR_struct> & ) ;
+
 		// for getting (and moving back) Theta,b, and lth layer al, zl (after activation function applied)
 		std::unique_ptr<float[],deleterRR_struct> getzl();
 
@@ -309,7 +345,7 @@ class Axon_act : public Axon
 		void rightMul(); 
 
 		/* ========== Add bias ========== */
-		void addb(const int M_x, const int N_x=0);
+		void addb(const int M_x);
 
 		/* ========== activate with activation function ========== */
 		void actf( const int M_x, const int N_x=0); 

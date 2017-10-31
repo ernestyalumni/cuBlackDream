@@ -1,6 +1,6 @@
 /**
- * @file   : smartptr.cu
- * @brief  : Smart pointers content/source file in CUDA C++14, 
+ * @file   : Feedfwd.cu
+ * @brief  : Feedforward content/source file in CUDA C++14, 
  * @author : Ernest Yeung <ernestyalumni@gmail.com>
  * @date   : 20171007  
  * @ref    :  
@@ -28,19 +28,9 @@
  * */
 #include "Feedfwd.h"
 
+/* =============== CUDA functions =============== */
+
 /* =============== CUDA kernel functions =============== */
-/** @fn setconstval_kernel
- * 	@brief set a float array of length Lx all to values of const_val 
- * 	@details cudaMemset only sets an array to 0 value; we want value of 1
- * */
-__global__ void setconstval_kernel(const int Lx, const float const_val, float* A) {
-	int tid = threadIdx.x + blockDim.x * blockIdx.x; 
-	if (tid >= Lx) { 
-		return ; 
-	} 
-	A[tid] = const_val ; 	
-	
-}
 
 __global__ void costJ_xent_kernel(const int Lx, const float* y, const float* yhat, float* s) {
 	int kx = threadIdx.x + blockDim.x*blockIdx.x;
@@ -49,7 +39,7 @@ __global__ void costJ_xent_kernel(const int Lx, const float* y, const float* yha
 	/* this for loop ensure that, if in case SIZE > gridDimx.x*blockDim.x (or even if  
 	 * 	SIZE >> gridDimx.x*blockDim.x so we have more values to compute than threads on a GPU!)  
 	 * that everything gets computed) */
-	for (int tid=kx; kx < Lx; kx += gridDim.x*blockDim.x ) { 
+	for (int tid=kx; tid < Lx; tid += gridDim.x*blockDim.x ) { 
 		float y_val = y[tid];
 		float yhat_val = yhat[tid]; 
 		float s_val = - y_val * logf( yhat_val) - (1.f - y_val) * logf( 1.f - yhat_val);
@@ -57,23 +47,45 @@ __global__ void costJ_xent_kernel(const int Lx, const float* y, const float* yha
 	}
 }
 
-
-__global__ void Dxent_kernel(const int Lx, const float* y, const float* yhat, const float *Dyhat, float* Ds) {
+/**
+ * @fn Deltaxent_kernel, __global__ void Deltaxent_kernel
+ * @brief compute Delta for the so-called cross-entropy loss function
+ * @details Compute
+ * ( \widehat{y}^k_{(i)} - y_{(i)}^k )/ (\widehat{y}^k_{(i)} (1 - \widehat{y}_{(i)}^k ) ) 
+*/
+__global__ void Deltaxent_kernel(const int Lx, const float* y, const float* yhat, float* Delta) {
 	int kx = threadIdx.x + blockDim.x*blockIdx.x;
 	if (kx >= Lx) { return; } // more than enough threads were launched to calculate the Lx elements
 	
 	/* this for loop ensure that, if in case SIZE > gridDimx.x*blockDim.x (or even if  
 	 * 	SIZE >> gridDimx.x*blockDim.x so we have more values to compute than threads on a GPU!)  
 	 * that everything gets computed) */
-	for (int tid=kx; kx < Lx; kx += gridDim.x*blockDim.x ) { 
+	for (int tid=kx; tid < Lx; tid += gridDim.x*blockDim.x ) { 
 		float y_val = y[tid];
 		float yhat_val = yhat[tid]; 
-//		float Dyhat_val = 
-//		float s_val = - y_val * logf( yhat_val) - (1.f - y_val) * logf( 1.f - yhat_val);
-//		s[tid] = s_val;
+		float Delta_ik = (yhat_val - y_val)/(yhat_val*(1.0f - yhat_val)); 
+		Delta[tid] = Delta_ik;
 	}
 }
 
+/**
+ * 	@fn HadamardMultiply
+ * 	@brief element-wise multiply  
+ * */
+__global__ void HadamardMultiply_kernel(const int SIZE, const float* A, float* B) {
+	int kx = threadIdx.x + blockDim.x*blockIdx.x;
+	if (kx >= SIZE) { return; } // more than enough threads were launched to calculate the Lx elements
+	
+	/* this for loop ensure that, if in case SIZE > gridDimx.x*blockDim.x (or even if  
+	 * 	SIZE >> gridDimx.x*blockDim.x so we have more values to compute than threads on a GPU!)  
+	 * that everything gets computed) */
+	for (int tid=kx; tid < SIZE; tid += gridDim.x*blockDim.x ) { 
+		float A_val = A[tid];
+		float B_val = B[tid];
+		float C_val = A_val * B_val; 
+		B[tid] = C_val;
+	}
+}
 
 /* ==================== Linear Regression class ==================== */
 
@@ -82,7 +94,8 @@ __global__ void Dxent_kernel(const int Lx, const float* y, const float* yhat, co
  * */
 
 // Constructors
-LinReg::LinReg(std::vector<int> & sizeDimsvec) : 
+LinReg::LinReg(std::vector<int> & sizeDimsvec, 
+					const int idx_device) : 
 	sizeDimsvec(sizeDimsvec) 
 {
 	const int Lp1 = sizeDimsvec.size(); // L=total number of Axons and so L+1 is total number of layers
@@ -90,8 +103,12 @@ LinReg::LinReg(std::vector<int> & sizeDimsvec) :
 	{
 		int s_lm1 = sizeDimsvec[l-1];
 		int s_l = sizeDimsvec[l];
-		Axons.push_back( Axon(s_lm1,s_l) );
+		Axons.push_back( Axon(s_lm1,s_l,idx_device) );
 	}	
+
+	// get maximum grid dimension on the device, numbered idx_device (usually 0th device GPU)
+	MAX_SIZE_1DARR = get_max_device_array_size1d(idx_device);
+	
 }
 		
 // member functions
@@ -122,10 +139,8 @@ void LinReg::load_y_from_hvec(std::vector<float>& h_yvec) {
 	cudaMallocManaged((void **) &d_y, SIZE_Y*sizeof(float));
 	y = std::move(d_y);
 
-	// this WORKS as well
-//	cudaMallocManaged((void **) &y, SIZE_Y*sizeof(float));
 	cudaMemcpy(y.get(), h_yvec.data(), SIZE_Y*sizeof(float),cudaMemcpyHostToDevice);	
-	
+
 }
 
 // for loading input data X into layer 0, a0, input layer
@@ -152,13 +167,14 @@ void LinReg::load_X_from_hvec(std::vector<float>& h_Xvec, const int m)
 	for (int l=2;l<Lp1; l++) {
 		int idx_axon = l-1; // l=2,3...L, idx_axon=1,2,...L-1
 
+		auto tempshptr = Axons[idx_axon-1].getal() ; // temporary shared pointer, don't move, but share ownership to it temporarily
+		
+
 		// must do move for 1 command immediately below, because otherwise, error: initial value of reference 
 		// to non-const must be an lvalue
-		auto tempshptr = std::move( Axons[idx_axon-1].getal() ); // temporary shared pointer, move ownership to it temporarily
 		Axons[idx_axon].load_alm1_from_ptr( tempshptr );
 		Axons[idx_axon].init_al(m);
-		Axons[idx_axon-1].move2al_from_ptr( tempshptr); // move ownership back to al from temporary shared ptr
-
+		tempshptr.reset();
 	}
 
 	this->m=m; // store the number of training examples
@@ -191,7 +207,7 @@ std::shared_ptr<float> LinReg::getalm1(const int l) {
 	const int Lp1 = sizeDimsvec.size(); // L = total number of Axons and so L+1 is total number of layers
 	assert (l < Lp1);	// sanity check that l=1,2,...L
 	int idx_axon = l-1; // ind_axon=0,1,...L-1, 0-based counting
-	auto ptr = std::move( Axons[idx_axon].getalm1() );
+	auto ptr = Axons[idx_axon].getalm1() ;
 
 	return ptr;
 }
@@ -201,7 +217,7 @@ std::shared_ptr<float> LinReg::getal(const int l) {
 	const int Lp1 = sizeDimsvec.size(); // L = total number of Axons and so L+1 is total number of layers
 	assert (l < Lp1);	// sanity check that l=1,2,...L
 	int idx_axon = l-1; // ind_axon=0,1,...L-1, 0-based counting
-	auto ptr = std::move( Axons[idx_axon].getal() );
+	auto ptr = Axons[idx_axon].getal() ;
 
 	return ptr;
 }
@@ -215,8 +231,13 @@ std::unique_ptr<float[],deleterRR_struct> LinReg::gety() {
 
 void LinReg::feedfwd(int M_x) {
 	const int Lp1 = sizeDimsvec.size(); // L = total number of Axons and so L+1 is total number of layers
+
 	for (int l=1; l < Lp1;l++) {
 		int idx_axon = l-1; // l=1,2,...L axons, idx_axon = 0,1,...L-1 (0-based counting for C/C++/Python
+
+		/* ===== grid, thread block size dimensions ===== */
+		// each Axon will take care of determining number of (thread) blocks on a grid, N_x
+	
 		Axons[idx_axon].rightMul();	// a^{l-1} \Theta = (a^{l-1}_i)^{j_{l-1}} \Theta_{j_{l-1}}^{j_l} =: z^l 
 		Axons[idx_axon].addb(M_x);	// z^l +b = (z^l_i)^{j_l} + (b^{(l)})^{j_l} =: z^l
 	}
@@ -227,7 +248,6 @@ float LinReg::compute_costJ_L2norm() {
 	const int K = sizeDimsvec[Lp1-1]; // size dim. of the a^L output layer for axon L, i.e. \widehat{h}, the prediction
 	const int SIZE_Y= K * m; 
 
-//	auto y_data = std::move( y.get() ); // y data, output data
 	auto yhat = Axons[Lp1-2].getal(); // L+1 - 2 = L-1 which is the last axon, when counting from 0, 0,1,...L-1
 	
 
@@ -254,7 +274,6 @@ float LinReg::compute_costJ_L2norm() {
 	cublasSgeam(*handle_u.get(), 
 		CUBLAS_OP_N, CUBLAS_OP_N, m, K, &a1, 
 		yhat.get(), 
-//		m, &bet, y_data.get(), m, 
 		m, &bet, y.get(), m, 
 		res.get(), m );
 					
@@ -263,12 +282,10 @@ float LinReg::compute_costJ_L2norm() {
 	cublasSnrm2(*handle_u.get(), SIZE_Y, res.get(), 1, &costJ);
 	costJ = 0.5f*costJ*costJ/((float) m) ;
 	
-	// return unique_ptr for y data ownership back
-//	y = std::move( y_data);
-	// this WORKS
-//	std::cout << "J="<< costJ << std::endl;
-
-	Axons[Lp1-2].move2al_from_ptr(yhat);
+	/** 
+	 * @ref https://stackoverflow.com/questions/21589595/does-using-reset-on-a-stdshared-ptr-delete-all-instances
+	 * */
+	yhat.reset();
 	return costJ;
 	
 }
@@ -334,14 +351,18 @@ void LinReg::grad_desc_step(  const float alpha_rate, int Mx)
 	cudaMallocManaged((void **) &ones, SIZE_ONES*sizeof(float));
 
 	/* ===== grid, thread block size dimensions ===== */
-		// M_x = number of threads in a (single) block in x-direction
-	const int Nx = (SIZE_ONES + Mx -1)/Mx;
+	// M_x = number of threads in a (single) block in x-direction
+	int Nx = (SIZE_ONES + Mx - 1)/Mx; 
+	if ( MAX_SIZE_1DARR < SIZE_ONES ) {
+		Nx = (MAX_SIZE_1DARR + Mx - 1) / Mx ; }
+
 	setconstval_kernel<<<Nx,Mx>>>(m,1.0f, ones.get() );
  
 	// this is a clever way to do summation
-	cublasSgemv(*handle_u.get(), CUBLAS_OP_T,m, K, 
-		&a1, res.get(), m, ones.get() , 1, &bet, dB.get(), 1);   
-	
+	cublasSgemm(*handle_u.get(), CUBLAS_OP_N, CUBLAS_OP_N, 1,K,m, 
+		&a1, ones.get(), 1, res.get(), m, 
+		&bet, dB.get(), 1); 
+
 		
 	bet = 1.0f; 
 	a1 = -1.0f * alpha_rate; 
@@ -353,8 +374,8 @@ void LinReg::grad_desc_step(  const float alpha_rate, int Mx)
 
 
 	// return ownership of yhat,a0 back to the Feed-forward "network"
-	Axons[Lp1-2].move2al_from_ptr(yhat);
-	Axons[Lp1-2].move2alm1_from_ptr(a0);
+	yhat.reset(); 
+	a0.reset(); 
 	Axons[Lp1-2].move2Theta_from_ptr(ThetaL);
 	Axons[Lp1-2].move2b_from_ptr(bL);
 
@@ -391,7 +412,8 @@ LinReg::~LinReg() {}
  * */
  
  // Constructors
-LogisticReg::LogisticReg(std::vector<int> & sizeDimsvec, std::vector<int> & actfs_intvec) : 
+LogisticReg::LogisticReg(std::vector<int> & sizeDimsvec, std::vector<int> & actfs_intvec, 
+	const int idx_device) : 
 	sizeDimsvec(sizeDimsvec), actfs_intvec(actfs_intvec)
 {
 	const int Lp1 = sizeDimsvec.size(); // L=total number of Axons and so L+1 is total number of layers
@@ -400,8 +422,12 @@ LogisticReg::LogisticReg(std::vector<int> & sizeDimsvec, std::vector<int> & actf
 		int s_lm1 = sizeDimsvec[l-1];
 		int s_l = sizeDimsvec[l];
 		int idx_actf = actfs_intvec[l-1];
-		Axons.push_back( Axon_act(s_lm1,s_l,idx_actf) );
+		Axons.push_back( Axon_act(s_lm1,s_l,idx_actf, idx_device) );
 	}	
+	
+	// get maximum grid dimension on the device, numbered idx_device (usually 0th device GPU)
+	MAX_SIZE_1DARR = get_max_device_array_size1d(idx_device);
+	
 }
 		
 // member functions
@@ -432,8 +458,6 @@ void LogisticReg::load_y_from_hvec(std::vector<float>& h_yvec) {
 	cudaMallocManaged((void **) &d_y, SIZE_Y*sizeof(float));
 	y = std::move(d_y);
 
-	// this WORKS as well
-//	cudaMallocManaged((void **) &y, SIZE_Y*sizeof(float));
 	cudaMemcpy(y.get(), h_yvec.data(), SIZE_Y*sizeof(float),cudaMemcpyHostToDevice);	
 	
 }
@@ -462,17 +486,16 @@ void LogisticReg::load_X_from_hvec(std::vector<float>& h_Xvec, const int m)
 	for (int l=2;l<Lp1; l++) {
 		int idx_axon = l-1; // l=2,3...L, idx_axon=1,2,...L-1
 
+		// if we didn't assign the shared_ptr and so "share" it, 
 		// must do move for 1 command immediately below, because otherwise, error: initial value of reference 
 		// to non-const must be an lvalue
-		auto tempshptr = std::move( Axons[idx_axon-1].getal() ); // temporary shared pointer, move ownership to it temporarily
+		auto tempshptr = Axons[idx_axon-1].getal(); // temporary shared pointer, share, NOT move, ownership to it temporarily
 		Axons[idx_axon].load_alm1_from_ptr( tempshptr );
 		Axons[idx_axon].init_zlal(m);
-		Axons[idx_axon-1].move2al_from_ptr( tempshptr); // move ownership back to al from temporary shared ptr
-
+//		Axons[idx_axon-1].move2al_from_ptr( tempshptr); // move ownership back to al from temporary shared ptr
+		tempshptr.reset();
 	}
-
 	this->m=m; // store the number of training examples
-
 }
 
 
@@ -502,7 +525,7 @@ std::shared_ptr<float> LogisticReg::getalm1(const int l) {
 	const int Lp1 = sizeDimsvec.size(); // L = total number of Axons and so L+1 is total number of layers
 	assert (l < Lp1);	// sanity check that l=1,2,...L
 	int idx_axon = l-1; // ind_axon=0,1,...L-1, 0-based counting
-	auto ptr = std::move( Axons[idx_axon].getalm1() );
+	auto ptr = Axons[idx_axon].getalm1();
 
 	return ptr;
 }
@@ -512,7 +535,7 @@ std::shared_ptr<float> LogisticReg::getal(const int l) {
 	const int Lp1 = sizeDimsvec.size(); // L = total number of Axons and so L+1 is total number of layers
 	assert (l < Lp1);	// sanity check that l=1,2,...L
 	int idx_axon = l-1; // ind_axon=0,1,...L-1, 0-based counting
-	auto ptr = std::move( Axons[idx_axon].getal() );
+	auto ptr = Axons[idx_axon].getal();
 
 	return ptr;
 }
@@ -521,7 +544,6 @@ std::unique_ptr<float[],deleterRR_struct> LogisticReg::gety() {
 	auto ptr = std::move(y);
 	return ptr;
 }
-
 
 /* ========== Feedforward ========== */
 /**
@@ -534,17 +556,17 @@ std::unique_ptr<float[],deleterRR_struct> LogisticReg::gety() {
 void LogisticReg::feedfwd(int M_x) {
 	const int Lp1 = sizeDimsvec.size(); // L = total number of Axons and so L+1 is total number of layers
 
-
 	for (int l=1; l < Lp1;l++) {
 		int idx_axon = l-1; // l=1,2,...L axons, idx_axon = 0,1,...L-1 (0-based counting for C/C++/Python
 		Axons[idx_axon].rightMul();	// a^{l-1} \Theta = (a^{l-1}_i)^{j_{l-1}} \Theta_{j_{l-1}}^{j_l} =: z^l 
-		Axons[idx_axon].addb(M_x,0);	// z^l +b = (z^l_i)^{j_l} + (b^{(l)})^{j_l} =: z^l
+		Axons[idx_axon].addb(M_x);	// z^l +b = (z^l_i)^{j_l} + (b^{(l)})^{j_l} =: z^l
 
 		/**
 		 * @note EY : 20171023 remember to fix the calculation of (thread) blocks on a grid to allow for 
 		 * arrays of size >> total number of threads allowed on the grid
 		 * */
-		Axons[idx_axon].actf(M_x,0); 
+		Axons[idx_axon].actf(M_x); 
+		Axons[idx_axon].do_Dpsi(M_x);
 	}
 }
 
@@ -592,10 +614,128 @@ float LogisticReg::compute_costJ_xent(const int Mx) {
 	cublasSdot( *handle_u.get(), SIZE_Y, entropys.get(), 1, ones.get(), 1, &costJ);
 	costJ = costJ/((float) m);
 
-	Axons[Lp1-2].move2al_from_ptr(yhat);
+//	Axons[Lp1-2].move2al_from_ptr(yhat);
+	yhat.reset();
 	return costJ;
 	
 } 
+
+/**	@fn grad_desc_step
+ *	@param Mx - number of threads in a (single) thread block in x-direction
+ * 				this is needed for setconstval_kernel, to create a vector of 1's as 
+ * 				a numerical trick for the usual (mathematical) Kronecker delta function	 
+ * */
+void LogisticReg::grad_desc_step(  const float alpha_rate, int M_x)
+{
+	const int Lp1 = sizeDimsvec.size(); // L = total number of Axons and so L+1 is total number of layers
+	const int K = sizeDimsvec[Lp1-1]; // size dim. of the a^L output layer for axon L, i.e. \widehat{h}, the prediction
+	const int SIZE_Y=  m * K ; 
+
+	const int d = sizeDimsvec[Lp1-2];
+
+	std::unique_ptr<cublasHandle_t,del_cublasHandle_struct> handle_u(
+		new cublasHandle_t);
+	cublasCreate(handle_u.get());	
+
+	/* ===== grid, thread block size dimensions ===== */
+	// M_x = number of threads in a (single) block in x-direction
+	int Nx = (SIZE_Y + M_x - 1)/M_x; 
+	if ( MAX_SIZE_1DARR < SIZE_Y ) {
+		Nx = (MAX_SIZE_1DARR + M_x - 1) / M_x ; }
+
+	// in this scope, make Delta to store results from take the partial derivative of the cross entropy function
+	std::unique_ptr<float[], deleterRR_struct> Delta(new float[SIZE_Y], deleterRR_struct());
+	cudaMallocManaged((void **) &Delta, SIZE_Y*sizeof(float));
+	
+	auto yhat = Axons[Lp1-2].getal(); // L+1 - 2 = L-1 which is the last axon, when counting from 0, 0,1,...L-1
+	auto ThetaL = std::move( Axons[Lp1-2].getTheta() );
+	auto bL = std::move( Axons[Lp1-2].getb() );
+
+	Deltaxent_kernel<<<Nx,M_x>>>(SIZE_Y, y.get(), yhat.get(), Delta.get()) ;
+
+	// then do the Hadamard product with dPsi^(L)/dz^(L)
+	auto dPsiLdzL = Axons[Lp1-2].getDpsil(); // L+1 - 2 = L-1 which is the last axon, when counting from 0, 0,1,...L-1
+	
+	HadamardMultiply_kernel<<<Nx,M_x>>>(SIZE_Y, dPsiLdzL.get(), Delta.get());
+
+
+	auto a0 = Axons[Lp1-2].getalm1();
+	
+	float a1 = 1.0f/ ((float) m);
+	float bet = 0.f;
+	// \sum_{i=1}^m (a_i^{(0)})^j \Delta_i^p = \frac{ \partial J }{ \partial \Theta_j^p }
+
+	const int SIZE_dTHETA = d*K;
+	std::unique_ptr<float[], deleterRR_struct> dTheta(new float[SIZE_dTHETA], deleterRR_struct());
+	cudaMallocManaged((void **) &dTheta, SIZE_dTHETA*sizeof(float));
+	
+	// dTheta = (1./m)*dTheta; dTheta \in \text{Mat}_{\mathbb{R}}(d,K)
+	cublasSgemm(*handle_u.get(),
+		CUBLAS_OP_T, CUBLAS_OP_N, d, K, m, &a1, a0.get(), m, Delta.get(), m , 
+			&bet, dTheta.get(), d);
+
+	// dB = (1./m)*dB ; dB \in \mathbb{R}^K
+	const int SIZE_dB = K;
+	std::unique_ptr<float[], deleterRR_struct> dB(new float[SIZE_dB], deleterRR_struct());
+	cudaMallocManaged((void **) &dB, SIZE_dB*sizeof(float));
+
+	// create 1s array, array of 1s
+	const int SIZE_ONES = m;
+	std::unique_ptr<float[], deleterRR_struct> ones(new float[SIZE_ONES], deleterRR_struct());
+	cudaMallocManaged((void **) &ones, SIZE_ONES*sizeof(float));
+
+	/* ===== grid, thread block size dimensions ===== */
+	// M_x = number of threads in a (single) block in x-direction
+	Nx = (SIZE_ONES + M_x - 1)/M_x; 
+	if ( MAX_SIZE_1DARR < SIZE_ONES ) {
+		Nx = (MAX_SIZE_1DARR + M_x - 1) / M_x ; }
+
+	setconstval_kernel<<<Nx,M_x>>>(m,1.0f, ones.get() );
+ 
+	// this is a clever way to do summation
+	cublasSgemm(*handle_u.get(), CUBLAS_OP_N, CUBLAS_OP_N, 1,K,m, 
+		&a1, ones.get(), 1, Delta.get(), m, 
+		&bet, dB.get(), 1); 
+
+
+	bet = 1.0f; 
+	a1 = -1.0f * alpha_rate; 
+
+	// actual gradient descent iteration step
+	cublasSaxpy( *handle_u.get(), SIZE_dTHETA, &a1, dTheta.get(), 1, ThetaL.get(), 1);
+	cublasSaxpy( *handle_u.get(), SIZE_dB, &a1, dB.get(), 1, bL.get(), 1);
+
+
+	// return ownership of yhat,a0 back to the Feed-forward "network"
+	yhat.reset(); 
+	a0.reset(); 
+	Axons[Lp1-2].move2Theta_from_ptr(ThetaL);
+	Axons[Lp1-2].move2b_from_ptr(bL);
+	Axons[Lp1-2].move2Dpsil_from_ptr(dPsiLdzL);
+	
+}
+
+
+/**	@fn grad_desc
+ *	@param Mx - number of threads in a (single) thread block in x-direction
+ * 				this is needed in the following:
+ * 				in feedfwd, for addb, because we're doing "row-wise" addition of a row vector
+ * 					across a matrix, 
+ * 				and 
+ * 				in grad_desc_step, for setconstval_kernel, to create a vector of 1's as 
+ * 				a numerical trick for the usual (mathematical) Kronecker delta function	 
+ * */
+void LogisticReg::grad_desc(  const int iterations, const float alpha_rate, int M_x)
+{
+	for (int iter=0; iter < iterations; iter++) 
+	{
+		feedfwd(M_x);
+		grad_desc_step( alpha_rate, M_x);
+		
+	}
+}
+
+
 
 // destructor
 LogisticReg::~LogisticReg() {}
