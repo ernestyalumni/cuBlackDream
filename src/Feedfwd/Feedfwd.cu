@@ -103,7 +103,9 @@ LinReg::LinReg(std::vector<int> & sizeDimsvec,
 	{
 		int s_lm1 = sizeDimsvec[l-1];
 		int s_l = sizeDimsvec[l];
-		Axons.push_back( Axon(s_lm1,s_l,idx_device) );
+	//	Axons.push_back( Axon(s_lm1,s_l,idx_device) );
+	// Don't copy; move.  cf. https://stackoverflow.com/questions/11572669/move-with-vectorpush-back 
+		Axons.push_back( std::move( Axon(s_lm1,s_l,idx_device)  ));
 	}	
 
 	// get maximum grid dimension on the device, numbered idx_device (usually 0th device GPU)
@@ -422,7 +424,9 @@ LogisticReg::LogisticReg(std::vector<int> & sizeDimsvec, std::vector<int> & actf
 		int s_lm1 = sizeDimsvec[l-1];
 		int s_l = sizeDimsvec[l];
 		int idx_actf = actfs_intvec[l-1];
-		Axons.push_back( Axon_act(s_lm1,s_l,idx_actf, idx_device) );
+		// Axons.push_back( Axon_act(s_lm1,s_l,idx_actf, idx_device) );
+		// Don't copy; move.  cf. https://stackoverflow.com/questions/11572669/move-with-vectorpush-back 
+		Axons.push_back( std::move( Axon(s_lm1,s_l,idx_device)  ));
 	}	
 	
 	// get maximum grid dimension on the device, numbered idx_device (usually 0th device GPU)
