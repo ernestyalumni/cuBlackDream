@@ -1,13 +1,13 @@
-# `./Axon`    
+# [`./Axon`](https://github.com/ernestyalumni/cuBlackDream/tree/master/src/Axon)    
 
-## on the move constructor  
+## on the *move constructor*  
 
-In `Axon.h`  
+In [`Axon.h`](https://github.com/ernestyalumni/cuBlackDream/blob/master/src/Axon/Axon.h)    
 
 ```  
 class Axon
 {
-	// protected chosen instead of private becuase members of derived class can access protected members, but not private
+	// protected chosen instead of private because members of derived class can access protected members, but not private
 	protected:
 		// size dims. of Theta,b - "weights" and bias
 		int l; // lth layer, l=1,2,...L for L total number of layers
@@ -18,7 +18,6 @@ class Axon
 
 		// this is used to calculate if have enough threads
 		int MAX_SIZE_1DARR; // maximum device grid size in x-dimension
-
 		int MAX_THREADBLOCK; // maximum number of threads in a (single thread) block
 
 		// custom deleter as a STRUCT for cublasHandle 
@@ -78,8 +77,11 @@ class Axon
 		// destructor
 		~Axon();			
 };
+```  
 
+inherited class `Axon_act` from base class `Axon`, in [`Axon.h`](https://github.com/ernestyalumni/cuBlackDream/blob/master/src/Axon/Axon.h)  
 
+```  
 class Axon_act : public Axon  
 {
 	protected:  
@@ -113,10 +115,9 @@ class Axon_act : public Axon
 		/* ========== partial derivatives with respect to z^l of psi^l(z^l) ========== */
 		void do_Dpsi( const int M_x, const int N_x=0); 		
 };
-
 ```  
 
-and then in `Axon.cu`:  
+and then in [`Axon.cu`](https://github.com/ernestyalumni/cuBlackDream/blob/master/src/Axon/Axon.cu):  
 
 ```  
 // Move Constructor
@@ -156,8 +157,11 @@ Axon & Axon::operator=(Axon && old_axon) {
 
 	return *this;
 }
+```  
 
+and then, for the inherited classes, in [`Axon.cu`](https://github.com/ernestyalumni/cuBlackDream/blob/master/src/Axon/Axon.cu):  
 
+```  
 // Move Constructor
 Axon_act::Axon_act(Axon_act&& old_axon) 
 	: 	Axon(std::move(old_axon)), // error: function "Axon::Axon(const Axon &)" (declared implicitly) cannot be referenced -- it is a deleted function
@@ -183,7 +187,7 @@ Axon_act & Axon_act::operator=(Axon_act && old_axon)
 
 ```  
 
-and it's actually used here, with `Feedfwd.cu` (look at when `.push_back` is used):  
+and it's actually used here, with [`Feedfwd.cu`](https://github.com/ernestyalumni/cuBlackDream/blob/master/src/Feedfwd/Feedfwd.cu) (look at when `.push_back` is used):  
 
 ```  
 // Constructors
