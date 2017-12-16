@@ -134,11 +134,6 @@ class Axon
 		int MAX_SIZE_1DARR; // maximum device grid size in x-dimension
 		int MAX_THREADBLOCK; // maximum number of threads in a (single thread) block
 
-		// custom deleter as a STRUCT for cublasHandle 
-		struct del_cublasHandle_struct {
-			void operator()(cublasHandle_t* ptr) { cublasDestroy(*ptr); }
-		};
-
 		// members 
 		std::unique_ptr<float[], deleterRR_struct> Theta;
 		std::unique_ptr<float[], deleterRR_struct> b;
@@ -157,8 +152,6 @@ class Axon
 		Axon &operator=(Axon &&);
 		
 		// member functions
-		void load_alm1_from_ptr(std::shared_ptr<float> &);
-
 		void move2Theta_from_ptr(std::unique_ptr<float[], deleterRR_struct> & ) ;
 		void move2b_from_ptr(std::unique_ptr<float[], deleterRR_struct> & ) ;
 
