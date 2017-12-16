@@ -172,38 +172,6 @@ class Axon
 };
 ```  
 
-*abridged version*
-```  
-class Axon_act : public Axon  
-{
-	protected:  
-		std::unique_ptr<float[], deleterRR_struct> zl;
-		std::unique_ptr<float[], deleterRR_struct> Dpsil; 
-
-	public:
-		// Constructor
-		Axon_act(const int s_lm1, const int s_l, const int idx_actf, const int idx_device=0);
-
-		// Move Constructor
-		Axon_act( Axon_act &&); 
-		
-		// operator overload assignment = 
-		Axon_act &operator=(Axon_act &&);
-
-		void move2Dpsil_from_ptr(std::unique_ptr<float[], deleterRR_struct> & ) ;
-
-		std::unique_ptr<float[],deleterRR_struct> getzl();
-		std::unique_ptr<float[],deleterRR_struct> getDpsil();
-
-		void rightMul(); 
-
-		void addb(const int M_x);
-		void actf( const int M_x, const int N_x=0); 
-
-		/* ========== partial derivatives with respect to z^l of psi^l(z^l) ========== */
-		void do_Dpsi( const int M_x, const int N_x=0); 		
-};
-```  
 
 inherited class `Axon_act` from base class `Axon`, in [`Axon.h`](https://github.com/ernestyalumni/cuBlackDream/blob/master/src/Axon/Axon.h)  
 
@@ -227,6 +195,40 @@ class Axon_act : public Axon
 		Axon_act &operator=(Axon_act &&);
 
 		void init_zlal(const int);
+
+		void move2Dpsil_from_ptr(std::unique_ptr<float[], deleterRR_struct> & ) ;
+
+		std::unique_ptr<float[],deleterRR_struct> getzl();
+		std::unique_ptr<float[],deleterRR_struct> getDpsil();
+
+		void rightMul(); 
+
+		void addb(const int M_x);
+		void actf( const int M_x, const int N_x=0); 
+
+		/* ========== partial derivatives with respect to z^l of psi^l(z^l) ========== */
+		void do_Dpsi( const int M_x, const int N_x=0); 		
+};
+```  
+
+
+*abridged version*
+```  
+class Axon_act : public Axon  
+{
+	protected:  
+		std::unique_ptr<float[], deleterRR_struct> zl;
+		std::unique_ptr<float[], deleterRR_struct> Dpsil; 
+
+	public:
+		// Constructor
+		Axon_act(const int s_lm1, const int s_l, const int idx_actf, const int idx_device=0);
+
+		// Move Constructor
+		Axon_act( Axon_act &&); 
+		
+		// operator overload assignment = 
+		Axon_act &operator=(Axon_act &&);
 
 		void move2Dpsil_from_ptr(std::unique_ptr<float[], deleterRR_struct> & ) ;
 
