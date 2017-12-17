@@ -318,8 +318,9 @@ Axon_act & Axon_act::operator=(Axon_act && old_axon)
 *abridged versions*
 ```  
 // Move Constructor
-Axon::Axon(Axon&& old_axon) : Theta(std::move(old_axon.Theta)), 
-								b(std::move(old_axon.b))
+Axon::Axon(Axon&& old_axon) : 
+	Theta(std::move(old_axon.Theta)), 
+	b(std::move(old_axon.b))
 {
 	s_lm1 = old_axon.s_lm1;
 	s_l = old_axon.s_l;
