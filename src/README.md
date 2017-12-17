@@ -422,6 +422,83 @@ LogisticReg::LogisticReg(std::vector<int> & sizeDimsvec, std::vector<int> & actf
 }
 ```  
 
+*abridged version*
+
+```  
+// in Feedfwd.h 
+class LinReg
+{
+	// if we want class inheritance, we don't want to inherit Axonx
+	private:
+		std::vector<Axon> Axons;
+	
+	... 
+	
+	public:
+		// Constructor
+		LinReg(std::vector<int> & sizeDimsvec, const int idx_device=0);
+	
+	...
+
+}  		
+
+
+// in Feedfwd.cu 
+// Constructors
+LinReg::LinReg(std::vector<int> & sizeDimsvec, 
+					const int idx_device) : 
+	sizeDimsvec(sizeDimsvec) 
+{
+	const int Lp1 = sizeDimsvec.size(); // L=total number of Axons and so L+1 is total number of layers
+	for (int l=1; l<Lp1; l++)  // l= lth Axon
+	{
+		int s_lm1 = sizeDimsvec[l-1];
+		int s_l = sizeDimsvec[l];
+		Axons.push_back( std::move( Axon(s_lm1,s_l,idx_device) ));
+	}	
+
+	// get maximum grid dimension on the device, numbered idx_device (usually 0th device GPU)
+	MAX_SIZE_1DARR = get_max_device_array_size1d(idx_device);
+}  
+
+
+// in Feedfwd.h 
+class LogisticReg
+{
+
+	protected:
+		std::vector<Axon_act> Axons;
+
+		... 
+
+	public:
+		// Constructor
+		LogisticReg(std::vector<int> &, std::vector<int> &, const int idx_device=0);
+		
+		...
+}
+
+// in Feedfwd.cu 
+// Constructors
+LogisticReg::LogisticReg(std::vector<int> & sizeDimsvec, std::vector<int> & actfs_intvec, 
+	const int idx_device) : 
+	sizeDimsvec(sizeDimsvec), actfs_intvec(actfs_intvec)
+{
+	const int Lp1 = sizeDimsvec.size(); // L=total number of Axons and so L+1 is total number of layers
+	for (int l=1; l<Lp1; l++)  // l= lth Axon
+	{
+		int s_lm1 = sizeDimsvec[l-1];
+		int s_l = sizeDimsvec[l];
+		int idx_actf = actfs_intvec[l-1];
+		Axons.push_back( std::move( Axon_act(s_lm1,s_l,idx_actf, idx_device) ) );
+	}	
+	
+	// get maximum grid dimension on the device, numbered idx_device (usually 0th device GPU)
+	MAX_SIZE_1DARR = get_max_device_array_size1d(idx_device);
+}
+```  
+
+
 Interesting to note that the `nvcc` GPU compiler had to see the `std::unique_ptr` custom destructor globally:  
 
 ```  
