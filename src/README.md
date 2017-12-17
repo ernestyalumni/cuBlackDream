@@ -315,6 +315,70 @@ Axon_act & Axon_act::operator=(Axon_act && old_axon)
 
 ```  
 
+*abridged versions*
+```  
+// Move Constructor
+Axon::Axon(Axon&& old_axon) : Theta(std::move(old_axon.Theta)), b(std::move(old_axon.b))
+{
+	s_lm1 = old_axon.s_lm1;
+	s_l = old_axon.s_l;
+	m = old_axon.m;
+	l = old_axon.l; // lth layer
+
+	MAX_SIZE_1DARR = old_axon.MAX_SIZE_1DARR ;  
+	MAX_THREADBLOCK = old_axon.MAX_THREADBLOCK;
+	
+	alm1 = std::move( old_axon.alm1 );
+	al = std::move( old_axon.al );	
+}
+
+// operator overload assignment = 
+Axon & Axon::operator=(Axon && old_axon) {
+	s_lm1 = old_axon.s_lm1;
+	s_l = old_axon.s_l;
+	m = old_axon.m;
+	l = old_axon.l; // lth layer
+
+	MAX_SIZE_1DARR = old_axon.MAX_SIZE_1DARR ;  
+	MAX_THREADBLOCK = old_axon.MAX_THREADBLOCK;
+
+	// shared_ptrs moved
+	alm1 = std::move( old_axon.alm1 );
+	al = std::move( old_axon.al );	
+
+	// unique_ptrs moved
+	Theta = std::move(old_axon.Theta);
+	b = std::move( old_axon.b );
+
+	return *this;
+}
+```  
+
+```  
+// Move Constructor
+Axon_act::Axon_act(Axon_act&& old_axon) 
+	: 	Axon(std::move(old_axon)), 
+
+	 zl(std::move(old_axon.zl)),
+	 Dpsil(std::move(old_axon.Dpsil))
+{
+	idx_actf = old_axon.idx_actf;
+}
+
+// operator overload assignment = 
+Axon_act & Axon_act::operator=(Axon_act && old_axon) 
+{
+	idx_actf = old_axon.idx_actf;
+
+	zl = std::move( old_axon.zl );
+	Dpsil = std::move( old_axon.Dpsil);
+
+	return *this;
+}
+```  
+
+
+
 and it's actually used here, with [`Feedfwd.cu`](https://github.com/ernestyalumni/cuBlackDream/blob/master/src/Feedfwd/Feedfwd.cu) (look at when `.push_back` is used):  
 
 ```  
