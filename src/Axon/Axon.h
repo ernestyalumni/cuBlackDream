@@ -41,7 +41,13 @@
 
 /* =============== custom deleters =============== */
 
-/* custom deleter as a struct */ 
+/**
+ * @brief custom deleter as a struct 
+ * @details The function call operator () can be overloaded for objects of class type. 
+ * When you overload ( ), you are not creating a new way to call a function. 
+ * Rather, you are creating an operator function that can be passed an arbitrary number of parameters.
+ * @ref https://www.tutorialspoint.com/cplusplus/function_call_operator_overloading.htm
+ * */ 
 struct deleterRR_struct
 {
 	void operator()(float* ptr) const 
