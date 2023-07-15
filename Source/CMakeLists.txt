@@ -163,5 +163,6 @@ ENDIF()
 FetchContent_MakeAvailable(googletest)
 
 ADD_SUBDIRECTORY(DeepNeuralNetwork)
+ADD_SUBDIRECTORY(Tensors)
 ADD_SUBDIRECTORY(UnitTests)
 ADD_SUBDIRECTORY(Utilities)

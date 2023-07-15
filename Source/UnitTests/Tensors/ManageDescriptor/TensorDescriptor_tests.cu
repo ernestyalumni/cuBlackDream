@@ -1,35 +1,32 @@
-#include "DeepNeuralNetwork/CuDNNLibraryHandle.h"
+#include "Tensors/ManageDescriptor/TensorDescriptor.h"
 #include "gtest/gtest.h"
 
-using DeepNeuralNetwork::CuDNNLibraryHandle;
+using Tensors::ManageDescriptor::TensorDescriptor;
 
 namespace GoogleUnitTests
 {
-namespace Utilities
-{
-namespace DeviceManagement
+namespace Tensors
 {
 
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
-TEST(CuDNNLibraryHandleTests, DefaultConstructs)
+TEST(TensorDescriptorTests, DefaultConstructs)
 {
-  CuDNNLibraryHandle handle {};
+  TensorDescriptor descriptor {};
 
   SUCCEED();
 }
 
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
-TEST(CuDNNLibraryHandleTests, Destructs)
+TEST(TensorDescriptorTests, Destructs)
 {
   {
-    CuDNNLibraryHandle handle {};
+    TensorDescriptor descriptor {};
   }
 
   SUCCEED();
 }
 
-} // namespace DeviceManagement
-} // namespace Utilities
+} // namespace Tensors
 } // namespace GoogleUnitTests

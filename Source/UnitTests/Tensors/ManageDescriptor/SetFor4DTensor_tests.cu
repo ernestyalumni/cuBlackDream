@@ -1,35 +1,33 @@
-#include "DeepNeuralNetwork/CuDNNLibraryHandle.h"
+#include "Tensors/ManageDescriptor/SetFor4DTensor.h"
+#include "Tensors/ManageDescriptor/TensorDescriptor.h"
 #include "gtest/gtest.h"
 
-using DeepNeuralNetwork::CuDNNLibraryHandle;
+using Tensors::ManageDescriptor::TensorDescriptor;
 
 namespace GoogleUnitTests
 {
-namespace Utilities
-{
-namespace DeviceManagement
+namespace Tensors
 {
 
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
-TEST(CuDNNLibraryHandleTests, DefaultConstructs)
+TEST(SetFor4DTensorTests, DefaultConstructs)
 {
-  CuDNNLibraryHandle handle {};
+  TensorDescriptor descriptor {};
 
   SUCCEED();
 }
 
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
-TEST(CuDNNLibraryHandleTests, Destructs)
+TEST(SetFor4DTensorTests, Destructs)
 {
   {
-    CuDNNLibraryHandle handle {};
+    TensorDescriptor descriptor {};
   }
 
   SUCCEED();
 }
 
-} // namespace DeviceManagement
-} // namespace Utilities
+} // namespace Tensors
 } // namespace GoogleUnitTests
