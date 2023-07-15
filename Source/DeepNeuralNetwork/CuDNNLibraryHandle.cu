@@ -17,7 +17,7 @@ CuDNNLibraryHandle::CuDNNLibraryHandle():
 
 CuDNNLibraryHandle::~CuDNNLibraryHandle()
 {
-  HandleUnsuccessfulCuDNNCall destroy_handle {"Failed to create handle"};
+  HandleUnsuccessfulCuDNNCall destroy_handle {"Failed to destroy handle"};
 
   destroy_handle(cudnnDestroy(handle_));
 }
