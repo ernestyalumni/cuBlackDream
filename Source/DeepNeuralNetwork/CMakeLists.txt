@@ -8,4 +8,5 @@ ADD_LIBRARY(DEEPNEURALNETWORK_CU
 # https://forums.developer.nvidia.com/t/cudnn-linking-error-using-cmake/57968/3
 
 TARGET_LINK_LIBRARIES(DEEPNEURALNETWORK_CU
-  cudnn)
+  cudnn
+  CUDA::cublas)

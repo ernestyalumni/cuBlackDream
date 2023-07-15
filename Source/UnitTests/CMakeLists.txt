@@ -1,6 +1,7 @@
 ENABLE_TESTING()
 
 SET(TEST_CU_SOURCES
+  DeepNeuralNetwork/cuDNNLibraryHandle_tests.cu
   Utilities/DeviceManagement/GetCUDADeviceProperties_tests.cu
   )
 
@@ -9,6 +10,7 @@ ADD_EXECUTABLE(Check
   )
 
 TARGET_LINK_LIBRARIES(Check
+  DEEPNEURALNETWORK_CU
   UTILITIES_CU
   gtest_main)
 
