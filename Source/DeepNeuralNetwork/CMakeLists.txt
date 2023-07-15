@@ -1,0 +1,11 @@
+SET(DEEPNEURALNETWORK_CU_SOURCES
+  CuDNNLibraryHandle.cu)
+
+ADD_LIBRARY(DEEPNEURALNETWORK_CU
+  ${DEEPNEURALNETWORK_CU_SOURCES}
+  )
+
+# https://forums.developer.nvidia.com/t/cudnn-linking-error-using-cmake/57968/3
+
+TARGET_LINK_LIBRARIES(DEEPNEURALNETWORK_CU
+  cudnn)
