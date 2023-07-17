@@ -21,7 +21,7 @@ class HandleUnsuccessfulCuDNNCall
 
     ~HandleUnsuccessfulCuDNNCall() = default;
 
-    inline bool is_success()
+    inline bool is_success() const
     {
       return status_ == CUDNN_STATUS_SUCCESS;
     }

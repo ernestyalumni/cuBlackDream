@@ -1,6 +1,10 @@
 ENABLE_TESTING()
 
 SET(TEST_CU_SOURCES
+  Activation/Forward_tests.cu
+  Activation/ManageDescriptor/ActivationDescriptor_tests.cu
+  Activation/ManageDescriptor/SetDescriptor_tests.cu
+  Algebra/Modules/Tensors/Tensor4D_tests.cu
   DeepNeuralNetwork/cuDNNLibraryHandle_tests.cu
   Tensors/ManageDescriptor/SetFor4DTensor_tests.cu
   Tensors/ManageDescriptor/TensorDescriptor_tests.cu
@@ -12,6 +16,7 @@ ADD_EXECUTABLE(Check
   )
 
 TARGET_LINK_LIBRARIES(Check
+  ACTIVATION_CU
   DEEPNEURALNETWORK_CU
   TENSORS_CU
   UTILITIES_CU

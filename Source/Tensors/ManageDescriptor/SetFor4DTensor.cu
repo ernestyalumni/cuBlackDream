@@ -1,4 +1,5 @@
 #include "SetFor4DTensor.h"
+#include "TensorDescriptor.h"
 #include "Utilities/ErrorHandling/HandleUnsuccessfulCuDNNCall.h"
 
 #include <cudnn.h>
@@ -43,6 +44,12 @@ HandleUnsuccessfulCuDNNCall SetFor4DTensor::set_descriptor(
     w_));
 
   return handle_set_descriptor;
+}
+
+HandleUnsuccessfulCuDNNCall SetFor4DTensor::set_descriptor(
+  TensorDescriptor& tensor_descriptor)
+{
+  return set_descriptor(tensor_descriptor.descriptor_);
 }
 
 } // namespace ManageDescriptor

@@ -162,6 +162,8 @@ ENDIF()
 
 FetchContent_MakeAvailable(googletest)
 
+ADD_SUBDIRECTORY(Activation)
+ADD_SUBDIRECTORY(Algebra)
 ADD_SUBDIRECTORY(DeepNeuralNetwork)
 ADD_SUBDIRECTORY(Tensors)
 ADD_SUBDIRECTORY(UnitTests)

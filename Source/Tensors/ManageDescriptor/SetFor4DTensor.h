@@ -57,6 +57,9 @@ class SetFor4DTensor
     HandleUnsuccessfulCuDNNCall set_descriptor(
       cudnnTensorDescriptor_t& tensor_descriptor);
 
+    HandleUnsuccessfulCuDNNCall set_descriptor(
+      TensorDescriptor& tensor_descriptor);
+
     //-------------------------------------------------------------------------- 
     /// https://docs.nvidia.com/deeplearning/cudnn/api/index.html#cudnnSetTensor4dDescriptor
     //-------------------------------------------------------------------------- 

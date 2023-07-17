@@ -1,35 +1,35 @@
-#include "Tensors/ManageDescriptor/TensorDescriptor.h"
+#include "Activation/ManageDescriptor/ActivationDescriptor.h"
 #include "gtest/gtest.h"
 
-using Tensors::ManageDescriptor::TensorDescriptor;
+using Activation::ManageDescriptor::ActivationDescriptor;
 
 namespace GoogleUnitTests
 {
-namespace Tensors
+namespace Activation
 {
 namespace ManageDescriptor
 {
 
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
-TEST(TensorDescriptorTests, DefaultConstructs)
+TEST(ActivationDescriptorTests, DefaultConstructs)
 {
-  TensorDescriptor descriptor {};
+  ActivationDescriptor descriptor {};
 
   SUCCEED();
 }
 
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
-TEST(TensorDescriptorTests, Destructs)
+TEST(ActivationDescriptorTests, Destructs)
 {
   {
-    TensorDescriptor descriptor {};
+    ActivationDescriptor descriptor {};
   }
 
   SUCCEED();
 }
 
 } // namespace ManageDescriptor
-} // namespace Tensors
+} // namespace Activation
 } // namespace GoogleUnitTests
