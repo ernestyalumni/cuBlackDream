@@ -4,6 +4,6 @@ SET(UTILITIES_CU_SOURCES
   ErrorHandling/HandleUnsuccessfulCuDNNCall.cu
   )
 
-ADD_LIBRARY(UTILITIES_CU
+ADD_LIBRARY(UtilitiesCU
   ${UTILITIES_CU_SOURCES}
   )

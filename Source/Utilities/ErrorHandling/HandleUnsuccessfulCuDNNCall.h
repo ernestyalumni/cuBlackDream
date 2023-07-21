@@ -28,9 +28,14 @@ class HandleUnsuccessfulCuDNNCall
 
     void operator()(const cudnnStatus_t cuDNN_status);
 
-    cudnnStatus_t get_status() const
+    inline cudnnStatus_t get_status() const
     {
       return status_;
+    }
+
+    inline std::string get_error_message() const
+    {
+      return error_message_;
     }
 
   private:

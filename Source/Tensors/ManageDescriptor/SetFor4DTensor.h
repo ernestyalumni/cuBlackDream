@@ -32,6 +32,11 @@ class SetFor4DTensor
     /// CUDNN_DATA_HALF - 16-bit floating-point
     /// CUDNN_DATA_INT8 - 8-bit signed integer.
     /// CUDNN_DATA_INT32 - 32-bit signed integer.
+    /// CUDNN_DATA_INT8x4 - 32-bit elements each composed of 4 8-bit signed
+    /// integers. Only supported with tensor format CUDNN_TENSOR_NCHW_VERT_C.
+    /// CUDNN_DATA_UINT8 - 8-bit unsigned integer.
+    /// CUDNN_DATA_UINT8x4 - 32-bit elements each composed of 4 8-bit unsigned
+    /// integers; only supported with tensor format CUDNN_TENSOR_NCHW_VERT_C.
     ///
     /// 3.1.2.28 cudnnTensorFormat_t
     /// cudnnTensorFormat_t for pre-defined layout.
@@ -78,9 +83,10 @@ class SetFor4DTensor
 
     const int number_of_elements_;
 
+    cudnnDataType_t data_type_;
+
   private:
 
-    cudnnDataType_t data_type_;
     cudnnTensorFormat_t format_;
 };
 

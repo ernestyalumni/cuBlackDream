@@ -6,7 +6,18 @@ SET(TEST_CU_SOURCES
   Activation/ManageDescriptor/SetDescriptor_tests.cu
   Algebra/Modules/Tensors/Tensor4D_tests.cu
   DeepNeuralNetwork/cuDNNLibraryHandle_tests.cu
+  RecurrentNeuralNetwork/ManageDescriptor/DataDescriptor_tests.cu
+  RecurrentNeuralNetwork/ManageDescriptor/DropoutDescriptor_tests.cu
+  RecurrentNeuralNetwork/ManageDescriptor/SetDataDescriptor_tests.cu
+  RecurrentNeuralNetwork/ManageDescriptor/SetDropoutDescriptor_tests.cu
+  RecurrentNeuralNetwork/ManageDescriptor/SetRNNDescriptor_tests.cu
+  RecurrentNeuralNetwork/Operations/Forward_tests.cu
+  RecurrentNeuralNetwork/Parameters_tests.cu
+  RecurrentNeuralNetwork/SequenceLengthArray_tests.cu
+  RecurrentNeuralNetwork/WeightSpace_tests.cu
+  RecurrentNeuralNetwork/WorkAndReserveSpaces_tests.cu
   Tensors/ManageDescriptor/SetFor4DTensor_tests.cu
+  Tensors/ManageDescriptor/SetForNDTensor_tests.cu
   Tensors/ManageDescriptor/TensorDescriptor_tests.cu
   Utilities/DeviceManagement/GetCUDADeviceProperties_tests.cu
   )
@@ -16,10 +27,11 @@ ADD_EXECUTABLE(Check
   )
 
 TARGET_LINK_LIBRARIES(Check
-  ACTIVATION_CU
-  DEEPNEURALNETWORK_CU
-  TENSORS_CU
-  UTILITIES_CU
+  ActivationCU
+  DeepNeuralNetworkCU
+  RecurrentNeuralNetworkCU
+  TensorsCU
+  UtilitiesCU
   gtest_main)
 
 INCLUDE(GoogleTest)

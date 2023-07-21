@@ -2,13 +2,13 @@ SET(DEEPNEURALNETWORK_CU_SOURCES
   CuDNNLibraryHandle.cu
   GetCuDNNVersion.cu)
 
-ADD_LIBRARY(DEEPNEURALNETWORK_CU
+ADD_LIBRARY(DeepNeuralNetworkCU
   ${DEEPNEURALNETWORK_CU_SOURCES}
   )
 
 # https://forums.developer.nvidia.com/t/cudnn-linking-error-using-cmake/57968/3
 
-TARGET_LINK_LIBRARIES(DEEPNEURALNETWORK_CU
+TARGET_LINK_LIBRARIES(DeepNeuralNetworkCU
   cudnn
   # It may be that cudnn requires cublas.
   CUDA::cublas)
@@ -18,8 +18,8 @@ ADD_EXECUTABLE(GetCuDNNVersion
   )
 
 TARGET_LINK_LIBRARIES(GetCuDNNVersion
-  DEEPNEURALNETWORK_CU
-  UTILITIES_CU
+  DeepNeuralNetworkCU
+  UtilitiesCU
   )
 
 SET_TARGET_PROPERTIES(GetCuDNNVersion

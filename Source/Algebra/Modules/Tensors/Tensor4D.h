@@ -122,7 +122,7 @@ class Tensor4D
       handle_malloc_values(
         cudaMallocManaged(
           reinterpret_cast<void**>(&values_),
-          total_number_of_elements() * sizeof(T)));      
+          total_number_of_elements() * sizeof(T)));
     }
 
     ~Tensor4D()

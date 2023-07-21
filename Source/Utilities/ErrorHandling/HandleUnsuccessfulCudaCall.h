@@ -33,6 +33,11 @@ class HandleUnsuccessfulCUDACall
       return cuda_error_;
     }
 
+    inline std::string get_error_message() const
+    {
+      return error_message_;
+    }
+
   private:
 
     std::string error_message_;

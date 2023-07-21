@@ -14,7 +14,7 @@ ActivationDescriptor::ActivationDescriptor():
   descriptor_{}
 {
   HandleUnsuccessfulCuDNNCall create_descriptor {
-    "Failed to create Tensor descriptor"};
+    "Failed to create Activation descriptor"};
 
   // https://docs.nvidia.com/deeplearning/cudnn/api/index.html#cudnnCreateActivationDescriptor
   // 3.2.6. cudnnCreateActivationDescriptor(). This function create an
@@ -26,7 +26,7 @@ ActivationDescriptor::ActivationDescriptor():
 ActivationDescriptor::~ActivationDescriptor()
 {
   HandleUnsuccessfulCuDNNCall destroy_descriptor {
-    "Failed to destroy descriptor"};
+    "Failed to destroy Activation descriptor"};
 
   // https://docs.nvidia.com/deeplearning/cudnn/api/index.html#cudnnDestroyTensorDescriptor
   destroy_descriptor(cudnnDestroyActivationDescriptor(descriptor_));
