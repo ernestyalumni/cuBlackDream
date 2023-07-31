@@ -65,7 +65,7 @@ TEST(DefaultParametersTests, GetOutputTensorSizeGetsSize)
 {
   DefaultParameters parameters {};
 
-  EXPECT_EQ(parameters.get_output_tensor_size(), 335544320);
+  EXPECT_EQ(parameters.get_output_tensor_size(), 655360);
 }
 
 //------------------------------------------------------------------------------
@@ -74,7 +74,7 @@ TEST(DefaultParametersTests, GetHiddenTensorSizeGetsSize)
 {
   DefaultParameters parameters {};
 
-  EXPECT_EQ(parameters.get_hidden_tensor_size(), 33554432);
+  EXPECT_EQ(parameters.get_hidden_tensor_size(), 65536);
 }
 
 //------------------------------------------------------------------------------
@@ -83,7 +83,7 @@ TEST(DefaultParametersTests, GetTotalMemoryConsumptionGetsSize)
 {
   DefaultParameters parameters {};
 
-  EXPECT_EQ(parameters.get_total_memory_consumption<float>(), 3763339264);
+  EXPECT_EQ(parameters.get_total_memory_consumption<float>(), 12582912);
 }
 
 } // namespace RecurrentNeuralNetwork

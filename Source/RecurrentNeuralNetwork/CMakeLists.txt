@@ -2,6 +2,7 @@ SET(RECURRENT_NEURAL_NETWORK_CU_SOURCES
   ManageDescriptor/DataDescriptor.cu
   ManageDescriptor/Descriptor.cu
   ManageDescriptor/DropoutDescriptor.cu
+  ManageDescriptor/HiddenDescriptor.cu
   ManageDescriptor/InputDescriptor.cu
   ManageDescriptor/LibraryHandleDropoutRNN.cu
   ManageDescriptor/OutputDescriptor.cu

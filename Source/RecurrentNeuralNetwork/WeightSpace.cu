@@ -37,7 +37,7 @@ WeightSpace::WeightSpace(CuDNNLibraryHandle& handle, Descriptor& descriptor):
     cudaMalloc(reinterpret_cast<void **>(&weight_space_), weight_space_size_));
 
   HandleUnsuccessfulCUDACall handle_malloc_2 {
-    "Failed to allocate device memory for d(ifferential) weight space"};
+    "Failed to allocate device memory for output weight space"};
 
   handle_malloc_2(
     cudaMalloc(
@@ -53,6 +53,13 @@ WeightSpace::WeightSpace(CuDNNLibraryHandle& handle, Descriptor& descriptor):
   {
     throw runtime_error(handle_malloc_2.get_error_message());
   }
+
+  HandleUnsuccessfulCUDACall handle_memset {
+    "Failed to set device memory for output weight space"};
+
+  // https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__MEMORY.html#group__CUDART__MEMORY_1gf7338650f7683c51ee26aadc6973c63a
+  // __host__ cudaError_t cudaMemset(void* devPtr, int value, size_t count)
+  handle_memset(cudaMemset(d_weight_space_, 0, weight_space_size_));
 }
 
 WeightSpace::WeightSpace(LibraryHandleDropoutRNN& descriptors):
@@ -67,7 +74,7 @@ WeightSpace::~WeightSpace()
   handle_free_space_1(cudaFree(weight_space_));
 
   HandleUnsuccessfulCUDACall handle_free_space_2 {
-    "Failed to free device memory for d(ifferential) weight space"};
+    "Failed to free device memory for output weight space"};
 
   handle_free_space_2(cudaFree(d_weight_space_));
 }

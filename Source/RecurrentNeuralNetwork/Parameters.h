@@ -84,11 +84,11 @@ struct Parameters
   cudnnRNNAlgo_t algo_;
   //------------------------------------------------------------------------
   /// Specifies RNN cell type in the entire model (CUDNN_RNN_RELU,
-  /// CUDNN_RNN_TANH, CUDNN_RNN_LSTM, CUDNN_RNN_GRU)
+  /// CUDNN_RNN_TANH, CUDNN_LSTM, CUDNN_GRU)
   //------------------------------------------------------------------------
   cudnnRNNMode_t cell_mode_;
   //------------------------------------------------------------------------
-  /// Ses number of bias vectors (CUDNN_RNN_NO_BIAS,
+  /// Sets number of bias vectors (CUDNN_RNN_NO_BIAS,
   /// CUDNN_RNN_SINGLE_INP_BIAS,
   /// CUDNN_RNN_SINGLE_REC_BIAS, CUDNN_RNN_DOUBLE_BIAS)
   //------------------------------------------------------------------------

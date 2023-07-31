@@ -8,9 +8,12 @@ SET(TEST_CU_SOURCES
   DeepNeuralNetwork/cuDNNLibraryHandle_tests.cu
   RecurrentNeuralNetwork/ManageDescriptor/DataDescriptor_tests.cu
   RecurrentNeuralNetwork/ManageDescriptor/DropoutDescriptor_tests.cu
+  RecurrentNeuralNetwork/ManageDescriptor/HiddenDescriptor_tests.cu
   RecurrentNeuralNetwork/ManageDescriptor/SetDataDescriptor_tests.cu
   RecurrentNeuralNetwork/ManageDescriptor/SetDropoutDescriptor_tests.cu
   RecurrentNeuralNetwork/ManageDescriptor/SetRNNDescriptor_tests.cu
+  RecurrentNeuralNetwork/Operations/BackwardOnData_tests.cu
+  RecurrentNeuralNetwork/Operations/BackwardOnWeights_tests.cu
   RecurrentNeuralNetwork/Operations/Forward_tests.cu
   RecurrentNeuralNetwork/Parameters_tests.cu
   RecurrentNeuralNetwork/SequenceLengthArray_tests.cu

@@ -78,6 +78,9 @@ class WorkAndReserveSpaces
       WorkAndReserveSpaces& work_and_reserve_spaces
       );
 
+    void* work_space_;
+    void* reserve_space_;
+
   private:
 
     //--------------------------------------------------------------------------
@@ -97,9 +100,6 @@ class WorkAndReserveSpaces
       RecurrentNeuralNetwork::ManageDescriptor::Descriptor& descriptor,
       RecurrentNeuralNetwork::ManageDescriptor::DataDescriptor&
         data_descriptor);
-
-    void* work_space_;
-    void* reserve_space_;
 
     std::size_t work_space_size_;
     std::size_t reserve_space_size_;

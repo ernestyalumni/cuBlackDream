@@ -4,6 +4,7 @@
 #include "RecurrentNeuralNetwork/Modules/Hidden.h"
 #include "RecurrentNeuralNetwork/Modules/Input.h"
 #include "RecurrentNeuralNetwork/Modules/Output.h"
+#include "RecurrentNeuralNetwork/Operations/backward_on_data.h"
 #include "RecurrentNeuralNetwork/Operations/forward.h"
 #include "RecurrentNeuralNetwork/Parameters.h"
 #include "RecurrentNeuralNetwork/SequenceLengthArray.h"
@@ -23,6 +24,7 @@ using RecurrentNeuralNetwork::ManageDescriptor::OutputDescriptor;
 using RecurrentNeuralNetwork::Modules::Hidden;
 using RecurrentNeuralNetwork::Modules::Input;
 using RecurrentNeuralNetwork::Modules::Output;
+using RecurrentNeuralNetwork::Operations::backward_on_data;
 using RecurrentNeuralNetwork::Operations::forward;
 using RecurrentNeuralNetwork::SequenceLengthArray;
 using RecurrentNeuralNetwork::WeightSpace;
@@ -37,7 +39,7 @@ namespace Operations
 
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
-TEST(ForwardTests, Forwards)
+TEST(BackwardOnDataTests, Backwards)
 {
   DefaultParameters parameters {};
   SequenceLengthArray sequence_length_array {parameters};
@@ -45,6 +47,63 @@ TEST(ForwardTests, Forwards)
   host_array.set_all_to_maximum_sequence_length();
   sequence_length_array.copy_host_input_to_device(host_array);
 
+  // Descriptors to be used are the same as when used for forward operation.
+  InputDescriptor x_descriptor {parameters, sequence_length_array};
+  OutputDescriptor y_descriptor {parameters, sequence_length_array};
+  LibraryHandleDropoutRNN descriptors {parameters};
+  HiddenDescriptor<3> h_descriptor {parameters};
+  HiddenDescriptor<3> c_descriptor {parameters};
+  h_descriptor.set_strides_by_dimensions();
+  c_descriptor.set_strides_by_dimensions();
+  h_descriptor.set_descriptor(parameters); 
+  c_descriptor.set_descriptor(parameters); 
+
+  WeightSpace weight_space {descriptors};
+  WorkAndReserveSpaces spaces {descriptors, x_descriptor};
+
+  Input<float> dx {parameters};
+  Output<float> y {parameters};
+  Output<float> dy {parameters};
+  Hidden<float> hx {parameters};
+  Hidden<float> dhy {parameters};
+  Hidden<float> dhx {parameters};
+  Hidden<float> cx {parameters};
+  Hidden<float> dcy {parameters};
+  Hidden<float> dcx {parameters};
+
+  const auto result = backward_on_data<float, 3>(
+    descriptors,
+    sequence_length_array,
+    y_descriptor,
+    y,
+    dy,
+    x_descriptor,
+    dx,
+    h_descriptor,
+    hx,
+    dhy,
+    dhx,
+    c_descriptor,
+    cx,
+    dcy,
+    dcx,
+    weight_space,
+    spaces);
+
+  EXPECT_TRUE(result.is_success());
+}
+
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+TEST(BackwardOnDataTests, BackwardsAfterForwards)
+{
+  DefaultParameters parameters {};
+  SequenceLengthArray sequence_length_array {parameters};
+  HostSequenceLengthArray host_array {parameters};
+  host_array.set_all_to_maximum_sequence_length();
+  sequence_length_array.copy_host_input_to_device(host_array);
+
+  // Descriptors to be used are the same as when used for forward operation.
   InputDescriptor x_descriptor {parameters, sequence_length_array};
   OutputDescriptor y_descriptor {parameters, sequence_length_array};
   LibraryHandleDropoutRNN descriptors {parameters};
@@ -59,13 +118,19 @@ TEST(ForwardTests, Forwards)
   WorkAndReserveSpaces spaces {descriptors, x_descriptor};
 
   Input<float> x {parameters};
+  Input<float> dx {parameters};
   Output<float> y {parameters};
+  Output<float> dy {parameters};
   Hidden<float> hx {parameters};
   Hidden<float> hy {parameters};
+  Hidden<float> dhy {parameters};
+  Hidden<float> dhx {parameters};
   Hidden<float> cx {parameters};
   Hidden<float> cy {parameters};
+  Hidden<float> dcy {parameters};
+  Hidden<float> dcx {parameters};
 
-  const auto result = forward<float, 3>(
+  const auto forward_result = forward<float, 3>(
     descriptors,
     sequence_length_array,
     x_descriptor,
@@ -78,6 +143,27 @@ TEST(ForwardTests, Forwards)
     c_descriptor,
     cx,
     cy,
+    weight_space,
+    spaces);
+
+  ASSERT_TRUE(forward_result.is_success());
+
+  const auto result = backward_on_data<float, 3>(
+    descriptors,
+    sequence_length_array,
+    y_descriptor,
+    y,
+    dy,
+    x_descriptor,
+    dx,
+    h_descriptor,
+    hx,
+    dhy,
+    dhx,
+    c_descriptor,
+    cx,
+    dcy,
+    dcx,
     weight_space,
     spaces);
 

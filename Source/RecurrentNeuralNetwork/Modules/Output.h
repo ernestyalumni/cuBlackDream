@@ -17,7 +17,8 @@ class Output
 {
   public:
 
-    using Utilities::ErrorHandling::HandleUnsuccessfulCUDACall;
+    using HandleUnsuccessfulCUDACall =
+      Utilities::ErrorHandling::HandleUnsuccessfulCUDACall;
 
     Output(const RecurrentNeuralNetwork::Parameters& parameters):
       y_{nullptr}
@@ -26,9 +27,9 @@ class Output
         "Failed to allocate device memory for output"};
 
       handle_malloc(
-        cudaMalloc(&x_, parameters.get_output_tensor_size() * sizeof(T)));
+        cudaMalloc(&y_, parameters.get_output_tensor_size() * sizeof(T)));
 
-      if (!handle_malloc.is_success())
+      if (!handle_malloc.is_cuda_success())
       {
         throw std::runtime_error(handle_malloc.get_error_message());
       }
@@ -39,10 +40,10 @@ class Output
       HandleUnsuccessfulCUDACall handle_free_space {
         "Failed to free device memory for output"};
 
-      handle_free_space(cudaFree(x_));
+      handle_free_space(cudaFree(y_));
     }
 
-    void* x_;
+    void* y_;
 };
 
 } // namespace Modules

@@ -63,6 +63,10 @@ Parameters::Parameters(
     }
   }
 
+  // If projection_size == hidden_size, recurrent projection feature is
+  // disabled. See 7.2.49. cudnnSetRNNDescriptor_v8() for projSize under
+  // "Parameters."
+  // https://docs.nvidia.com/deeplearning/cudnn/api/index.html#cudnnSetRNNDescriptor_v8
   if (projection_size > hidden_size)
   {
     throw runtime_error(

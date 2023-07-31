@@ -73,6 +73,7 @@ class SetForNDTensor
       return handle_set_descriptor;
     }
 
+    friend class HiddenDescriptor;
     friend class SetFor3DTensor;
 
     inline int get_dimensions_array_value(const std::size_t i) const

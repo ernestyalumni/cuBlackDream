@@ -5,6 +5,7 @@
 #include "RecurrentNeuralNetwork/ManageDescriptor/Descriptor.h"
 #include "RecurrentNeuralNetwork/ManageDescriptor/LibraryHandleDropoutRNN.h"
 #include "Utilities/ErrorHandling/HandleUnsuccessfulCuDNNCall.h"
+#include "Utilities/ErrorHandling/HandleUnsuccessfulCudaCall.h"
 
 #include <cstddef>
 #include <cudnn.h>
@@ -36,14 +37,44 @@ class WeightSpace
       return static_cast<float>(weight_space_size_) / 1024.0 / 1024.0;
     }
 
+    template <typename T>
+    Utilities::ErrorHandling::HandleUnsuccessfulCUDACall copy_to_host(
+      T* host_destination)
+    {
+      Utilities::ErrorHandling::HandleUnsuccessfulCUDACall handle_copy {
+        "Failed to copy device weight space output to host"};
+
+      handle_copy(cudaMemcpy(
+        reinterpret_cast<void *>(&host_destination),
+        d_weight_space_,
+        weight_space_size_,
+        cudaMemcpyDeviceToHost));
+
+      return handle_copy;
+    }
+
+    void* weight_space_;
+
+    //--------------------------------------------------------------------------
+    /// \ref 8.2.22. cudnnRNNBackwardWeights_v8()
+    /// \href https://docs.nvidia.com/deeplearning/cudnn/api/index.html#cudnnRNNBackwardWeights_v8
+    /// From 8.2.2.. cudnnRNNBackwardWeights_v8(),
+    /// All gradient results (\partial \sigma_i/\partial w_j)^T \delta_{out}
+    /// with respect to weights and biases are written to dweightSpace buffer.
+    /// Size and organization of dweightSpace buffer is the same as weightSpace
+    /// buffer that holds RNN weights and biases.
+    /// Output. Address of weight space buffer in GPU memory.
+    /// Currently, cudnnRNNBackwardWeights_v8() supports CUDNN_WGRAD_MODE_ADD
+    /// mode only so dweightSpace buffer should be zeroed by user before
+    /// invoking routine for first time.
+    //--------------------------------------------------------------------------
+    void* d_weight_space_;
+
   private:
 
     Utilities::ErrorHandling::HandleUnsuccessfulCuDNNCall get_weight_space_size(
       DeepNeuralNetwork::CuDNNLibraryHandle& handle,
       RecurrentNeuralNetwork::ManageDescriptor::Descriptor& descriptor);
-
-    void* weight_space_;
-    void* d_weight_space_;
 
     std::size_t weight_space_size_;
 };

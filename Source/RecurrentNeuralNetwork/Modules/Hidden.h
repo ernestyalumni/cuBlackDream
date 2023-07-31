@@ -17,7 +17,8 @@ class Hidden
 {
   public:
 
-    using Utilities::ErrorHandling::HandleUnsuccessfulCUDACall;
+    using HandleUnsuccessfulCUDACall =
+      Utilities::ErrorHandling::HandleUnsuccessfulCUDACall;
 
     Hidden(const RecurrentNeuralNetwork::Parameters& parameters):
       h_{nullptr}
@@ -28,7 +29,7 @@ class Hidden
       handle_malloc(
         cudaMalloc(&h_, parameters.get_hidden_tensor_size() * sizeof(T)));
 
-      if (!handle_malloc.is_success())
+      if (!handle_malloc.is_cuda_success())
       {
         throw std::runtime_error(handle_malloc.get_error_message());
       }

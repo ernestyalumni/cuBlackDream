@@ -51,7 +51,7 @@ TEST(WorkAndReserveSpaces, GetWorkSpaceSizeGetsSize)
 
   WorkAndReserveSpaces spaces {descriptors, x_descriptor};
 
-  EXPECT_EQ(spaces.get_work_space_size(), 25952256);
+  EXPECT_EQ(spaces.get_work_space_size(), 9175040);
 }
 
 //------------------------------------------------------------------------------

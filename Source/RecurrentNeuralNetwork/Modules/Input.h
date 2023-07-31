@@ -17,7 +17,8 @@ class Input
 {
   public:
 
-    using Utilities::ErrorHandling::HandleUnsuccessfulCUDACall;
+    using HandleUnsuccessfulCUDACall =
+      Utilities::ErrorHandling::HandleUnsuccessfulCUDACall;
 
     Input(RecurrentNeuralNetwork::Parameters& parameters):
       x_{nullptr}
@@ -28,7 +29,7 @@ class Input
       handle_malloc(
         cudaMalloc(&x_, parameters.get_input_tensor_size() * sizeof(T)));
 
-      if (!handle_malloc.is_success())
+      if (!handle_malloc.is_cuda_success())
       {
         throw std::runtime_error(handle_malloc.get_error_message());
       }

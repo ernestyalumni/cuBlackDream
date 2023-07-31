@@ -19,7 +19,7 @@ namespace ManageDescriptor
 
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
-TEST(SetDataDescriptor, DefaultConstructs)
+TEST(SetDataDescriptorTests, DefaultConstructs)
 {
   SetDataDescriptor set_data_descriptor {};
 
@@ -28,7 +28,7 @@ TEST(SetDataDescriptor, DefaultConstructs)
 
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
-TEST(SetDataDescriptor, SetDescriptorForInputSets)
+TEST(SetDataDescriptorTests, SetDescriptorForInputSets)
 {
   DataDescriptor x_data_descriptor {};
   SetDataDescriptor set_data_descriptor {};
@@ -49,7 +49,7 @@ TEST(SetDataDescriptor, SetDescriptorForInputSets)
 
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
-TEST(SetDataDescriptor, SetDescriptorForOutputSets)
+TEST(SetDataDescriptorTests, SetDescriptorForOutputSets)
 {
   DataDescriptor y_data_descriptor {};
   SetDataDescriptor set_data_descriptor {};
