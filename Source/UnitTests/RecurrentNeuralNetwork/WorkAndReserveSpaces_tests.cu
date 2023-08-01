@@ -51,7 +51,11 @@ TEST(WorkAndReserveSpaces, GetWorkSpaceSizeGetsSize)
 
   WorkAndReserveSpaces spaces {descriptors, x_descriptor};
 
-  EXPECT_EQ(spaces.get_work_space_size(), 9175040);
+  // TODO: Investigate why on a 980 Ti it is the last value and on a 3070 it is
+  // the first value; versions of cuDNN and CUDA are the same.
+  EXPECT_TRUE(
+    spaces.get_work_space_size() == 9175040 ||
+      spaces.get_work_space_size() == 25952256);
 }
 
 //------------------------------------------------------------------------------
