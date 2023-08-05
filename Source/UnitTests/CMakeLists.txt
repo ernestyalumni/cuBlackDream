@@ -5,13 +5,18 @@ SET(TEST_CU_SOURCES
   Activation/ManageDescriptor/ActivationDescriptor_tests.cu
   Activation/ManageDescriptor/SetDescriptor_tests.cu
   Algebra/Modules/Tensors/Tensor4D_tests.cu
+  Algebra/Modules/Vectors/RunTimeVoidPtrArray_tests.cu
+  Algebra/Modules/Vectors/VoidPtrArray_tests.cu
   DeepNeuralNetwork/cuDNNLibraryHandle_tests.cu
   RecurrentNeuralNetwork/ManageDescriptor/DataDescriptor_tests.cu
   RecurrentNeuralNetwork/ManageDescriptor/DropoutDescriptor_tests.cu
   RecurrentNeuralNetwork/ManageDescriptor/HiddenDescriptor_tests.cu
+  RecurrentNeuralNetwork/ManageDescriptor/LibraryHandleDropoutRNN_tests.cu
   RecurrentNeuralNetwork/ManageDescriptor/SetDataDescriptor_tests.cu
   RecurrentNeuralNetwork/ManageDescriptor/SetDropoutDescriptor_tests.cu
   RecurrentNeuralNetwork/ManageDescriptor/SetRNNDescriptor_tests.cu
+  RecurrentNeuralNetwork/Modules/GetWeightsAndBias_tests.cu
+  RecurrentNeuralNetwork/Modules/Weight_tests.cu
   RecurrentNeuralNetwork/Operations/BackwardOnData_tests.cu
   RecurrentNeuralNetwork/Operations/BackwardOnWeights_tests.cu
   RecurrentNeuralNetwork/Operations/Forward_tests.cu
@@ -19,10 +24,12 @@ SET(TEST_CU_SOURCES
   RecurrentNeuralNetwork/SequenceLengthArray_tests.cu
   RecurrentNeuralNetwork/WeightSpace_tests.cu
   RecurrentNeuralNetwork/WorkAndReserveSpaces_tests.cu
+  Tensors/ManageDescriptor/GetNDTensorDescriptorValues_tests.cu
   Tensors/ManageDescriptor/SetFor4DTensor_tests.cu
   Tensors/ManageDescriptor/SetForNDTensor_tests.cu
   Tensors/ManageDescriptor/TensorDescriptor_tests.cu
   Utilities/DeviceManagement/GetCUDADeviceProperties_tests.cu
+  Utilities/CuDNNDataTypeToType_tests.cu
   )
 
 ADD_EXECUTABLE(Check
@@ -31,6 +38,7 @@ ADD_EXECUTABLE(Check
 
 TARGET_LINK_LIBRARIES(Check
   ActivationCU
+  AlgebraCU
   DeepNeuralNetworkCU
   RecurrentNeuralNetworkCU
   TensorsCU

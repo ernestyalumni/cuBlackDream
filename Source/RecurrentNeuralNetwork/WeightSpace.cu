@@ -11,10 +11,10 @@
 #include <stdexcept>
 
 using DeepNeuralNetwork::CuDNNLibraryHandle;
-using Utilities::ErrorHandling::HandleUnsuccessfulCUDACall;
-using Utilities::ErrorHandling::HandleUnsuccessfulCuDNNCall;
 using RecurrentNeuralNetwork::ManageDescriptor::Descriptor;
 using RecurrentNeuralNetwork::ManageDescriptor::LibraryHandleDropoutRNN;
+using Utilities::ErrorHandling::HandleUnsuccessfulCUDACall;
+using Utilities::ErrorHandling::HandleUnsuccessfulCuDNNCall;
 using std::runtime_error;
 
 namespace RecurrentNeuralNetwork

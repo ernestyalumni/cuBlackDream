@@ -86,12 +86,16 @@ class WorkAndReserveSpaces
     //--------------------------------------------------------------------------
     /// https://docs.nvidia.com/deeplearning/cudnn/api/index.html#cudnnGetRNNTempSpaceSizes
     /// \ref 7.2.29. cudnnGetRNNTempSpaceSizes()
+    /// \brief Computes the work and reserve space buffer sizes based on RNN
+    /// network geometry stored in rnnDesc. 
     /// cudnnStatus_t cudnnGetRNNTempSpaceSizes(
     ///   cudnnHandle_t handle,
     ///   cudnnRNNDescriptor_t rnnDesc,
     ///   cudnnForwardMode_t fMode,
     ///   cudnnRNNDataDescriptor_t xDesc,
     ///   ..)
+    /// \param [in] handle - current cuDNN context handle.
+    /// \param [in] rnnDesc - Previously initialized RNN descriptor.
     /// xDesc - Input. Single RNN data descriptor that specifies current RNN
     /// data dimensions: maxSeqLength and batchSize.
     //--------------------------------------------------------------------------

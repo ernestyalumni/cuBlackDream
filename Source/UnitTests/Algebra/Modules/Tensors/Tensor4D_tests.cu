@@ -154,7 +154,6 @@ TEST(HostTensor4DTests, CopiesToDevice)
   }
 }
 
-
 } // namespace Tensors
 } // namespace Modules
 } // namespace Algebra

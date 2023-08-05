@@ -9,6 +9,8 @@ SET(RECURRENT_NEURAL_NETWORK_CU_SOURCES
   ManageDescriptor/SetDataDescriptor.cu
   ManageDescriptor/SetDropoutDescriptor.cu
   ManageDescriptor/SetRNNDescriptor.cu
+  Modules/GetWeightsAndBias.cu
+  Modules/Weight.cu
   Parameters.cu
   SequenceLengthArray.cu
   WeightSpace.cu

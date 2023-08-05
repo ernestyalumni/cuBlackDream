@@ -24,7 +24,7 @@ class Input
       x_{nullptr}
     {
       HandleUnsuccessfulCUDACall handle_malloc {
-        "Failed to allocate device memory for input"};
+        "Failed to allocate device memory for Input construction"};
 
       handle_malloc(
         cudaMalloc(&x_, parameters.get_input_tensor_size() * sizeof(T)));
@@ -38,7 +38,7 @@ class Input
     ~Input()
     {
       HandleUnsuccessfulCUDACall handle_free_space {
-        "Failed to free device memory for input"};
+        "Failed to free device memory for Input"};
 
       handle_free_space(cudaFree(x_));
     }

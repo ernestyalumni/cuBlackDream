@@ -42,6 +42,8 @@ namespace ManageDescriptor
 /// CUDNN_RNN_DATA_LAYOUT_SEQ_MAJOR_UNPACKED and
 /// CUDNN_RNN_DATA_LAYOUT_BATCH_MAJOR_UNPACKED are permitted in RNN data
 /// descriptors.
+/// \param [in] numLayers - number of stacked physical layers in the deep
+/// RNN model.
 //--------------------------------------------------------------------------
 
 Utilities::ErrorHandling::HandleUnsuccessfulCuDNNCall set_rnn_descriptor(

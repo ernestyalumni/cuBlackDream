@@ -21,7 +21,7 @@ class HandleUnsuccessfulCUDACall
 
     ~HandleUnsuccessfulCUDACall() = default;
 
-    inline bool is_cuda_success()
+    inline bool is_cuda_success() const
     {
       return cuda_error_ == cudaSuccess;
     }

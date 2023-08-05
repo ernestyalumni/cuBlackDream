@@ -11,8 +11,6 @@
 #include "RecurrentNeuralNetwork/WorkAndReserveSpaces.h"
 #include "gtest/gtest.h"
 
-#include <cudnn.h>
-
 using RecurrentNeuralNetwork::DefaultParameters;
 using RecurrentNeuralNetwork::HostSequenceLengthArray;
 using RecurrentNeuralNetwork::ManageDescriptor::HiddenDescriptor;

@@ -72,6 +72,11 @@ class WeightSpace
 
   private:
 
+    //--------------------------------------------------------------------------
+    /// https://docs.nvidia.com/deeplearning/cudnn/api/index.html#cudnnGetRNNWeightSpaceSize
+    /// \param [in] handle - current cuDNN context handle.
+    /// \parma [in] rnnDesc - previously initialized RNN descriptor.
+    //--------------------------------------------------------------------------
     Utilities::ErrorHandling::HandleUnsuccessfulCuDNNCall get_weight_space_size(
       DeepNeuralNetwork::CuDNNLibraryHandle& handle,
       RecurrentNeuralNetwork::ManageDescriptor::Descriptor& descriptor);

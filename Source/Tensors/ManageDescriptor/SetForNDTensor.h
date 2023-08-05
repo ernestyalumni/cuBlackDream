@@ -5,8 +5,11 @@
 #include "TensorDescriptor.h"
 #include "Utilities/ErrorHandling/HandleUnsuccessfulCuDNNCall.h"
 
+#include <algorithm>
+#include <array>
 #include <cstddef>
 #include <cudnn.h>
+#include <type_traits>
 
 namespace Tensors
 {
@@ -16,7 +19,7 @@ namespace ManageDescriptor
 //------------------------------------------------------------------------------
 /// N - dimension of the tensor.
 //------------------------------------------------------------------------------
-template <std::size_t N>
+template <std::size_t N, typename = std::enable_if_t<(N > 0)>>
 class SetForNDTensor
 {
   public:
@@ -95,6 +98,40 @@ class SetForNDTensor
     {
       strides_array_[i] = value;
     }
+
+    void set_dimensions(const std::array<int, N>& input_array)
+    {
+      std::copy(input_array.begin(), input_array.end(), dimensions_array_);
+    }
+
+    void set_strides(const std::array<int, N>& input_array)
+    {
+      std::copy(input_array.begin(), input_array.end(), strides_array_);      
+    }
+
+    void set_strides_from_dimensions_as_descending()
+    {
+      int product_of_dimensions {1};
+      for (std::size_t i {N}; i > 0; --i)
+      {
+        strides_array_[i - 1] = product_of_dimensions;
+        product_of_dimensions *= dimensions_array_[i - 1];
+      }
+    }
+
+    void set_strides_from_dimensions_as_increasing()
+    {
+      int product_of_dimensions {1};
+      for (std::size_t i {0}; i < N; ++i)
+      {
+        strides_array_[i] = product_of_dimensions;
+        if (i < N - 1)
+        {
+          product_of_dimensions *= dimensions_array_[i + 1];
+        }
+      }
+    }
+
 
   private:
 
