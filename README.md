@@ -1,11 +1,47 @@
 # cuBlackDream (cuBD)
-Machine Learning and Deep Learning in CUDA C++14 for CUDA 9, CUDNN 7 and above; GPU-accelerated (parallel programming) first.
-
+Machine Learning and Deep Learning in CUDA C++20 for CUDA 12.2, CUDNN 8.9.3 and above; GPU-accelerated (parallel programming) first.
 
 - Parallel programming, parallel algorithms *only* as the aim to move all the computation to the GPU
 - Fast File I/O with C++14 *binary* format (`std::ios::binary`)
 - Multi-GPU ready (CUDA Unified Memory Management used exclusively)
-- C++14 smart pointers
+- C++20 smart pointers
+
+## Building the C++ project
+
+Make a new Build directory from the "top" directory. You can name it anything but typically I like to name it "BuildGcc", or `Build<compiler type>` where compiler type is the compiler I'm using, such as GCC.
+```
+cuBlackDream$ mkdir BuildGcc
+```
+Then
+```
+cd BuildGcc
+cmake ../Source
+make
+```
+Then running `./Check` will run the unit tests suite. For example,
+
+```
+cuBlackDream/BuildGcc$ ./Check
+```
+
+## Creating and starting a virtual environment for Python 3
+
+Create a directory for a virtual environment:
+
+```
+/cuBlackDream$ python3 -m venv ./venv/
+```
+
+Activate it:
+```
+/cuBlackDream$ source ./venv/bin/activate
+```
+You should see the prompt have a prefix `(venv)`.
+
+Deactivate it:
+```
+deactivate
+```
 
 ## Glossary for directory/Explanation of Folder Structure here  
 
