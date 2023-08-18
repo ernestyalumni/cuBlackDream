@@ -6,8 +6,8 @@
 #include "WeightSpace.h"
 
 #include <cstddef>
-#include <cudnn.h>
 #include <cuda_runtime.h> // cudaFree, cudaMallocManaged
+#include <cudnn.h>
 #include <stdexcept>
 
 using DeepNeuralNetwork::CuDNNLibraryHandle;
@@ -21,6 +21,8 @@ namespace RecurrentNeuralNetwork
 {
 
 WeightSpace::WeightSpace(CuDNNLibraryHandle& handle, Descriptor& descriptor):
+  weight_space_{nullptr},
+  d_weight_space_{nullptr},
   weight_space_size_{0}
 {
   const auto handle_get_weight_size = get_weight_space_size(handle, descriptor);

@@ -132,15 +132,62 @@ Everything Deep Learning, Deep Neural Networks
 \section{Gaussian Processes}
 Yang (2021) for Tensor Programs I\cite{Yang2021}
 
+\part{Transformer Networks}
 
+Including \emph{Attention}
+
+\section{Transformers}
+
+\subsection{Input}
+
+See Turner (2023) \cite{Turn2023}.
+
+Let input data s.t. sequence of $N$ $\mathbf{x}^{(0)}_n$ of dim. $D$, $n = 0,1, \dots N-1$, $\mathbf{x}_n^{(0)} \in F^D$, where $F$ is some field (i.e. some data type such as float, double, etc.). \\
+
+Let matrix $X^{(0)} \in F^{D\times N}$ or $\text{Mat}_F(D, N)$, a sequence of $N$ arrays of dim. $D$ collected into a matrix. \\
+
+Let $M \in 0,1,\dots $ i.e. $M \in \mathbb{Z}^+$. \\
+
+The goal is to map $X^{(0)}$ to $X^{(M)} \in \text{Mat}_F(D,N)$ i.e. $X^{(M)}$ of size $D\times M$ s.t. since $x_n = X_{;n}^{(M)}$ is a vector of features representing the sequence at location of $n$ in the sequence.
+
+\subsection{Attention $A^{(m)}$ }
+
+Consider output vector at location $n$, $\mathbf{y}_n^{(m)}$, where 
+\begin{equation}
+\mathbf{y}_n^{(m)} = \mathbf{x}^{(m -1)}_{n'} A^{(m)}_{n' n}, \quad \, n' = 0,1, \dots N-1
+\end{equation} 
+(Eq. (1) of Turner (2023) \cite{Turn2023}), where $A^{(m)}_{n' n} = A^{(m)}$ is called the attention matrix, $A^{(m)} \in \text{Mat}_F(N, N)$ and normalizes over its columns:
+\begin{equation}
+\sum_{n' = 1}^N A^{(m)}_{n' n}  =1
+\end{equation}
+
+\subsection{Projection of Q, K, V, queries, keys, and values}
+
+Recall an input $\mathbf{x}_n = X^{(M)}_{;n} \in F^D$. Recall the linear transform resulting so-called queries or query vectors:
+\[
+\mathbf{q}^{(m)}_{h; n} = U^{(m)}_{q;h} \mathbf{x}^{(m-1)}_n \in F^K, \quad \, U^{(m)}_{q; h} \in \text{Mat}_F(K, D)
+\]
+where $h=0,1,\dots H-1$ with $H$ heads in Turner's notation (Turner (2023)\cite{Turn2023}). Compare this with NVIDIA's notation, \cite{NSAtn2023}, $i=0,1,\dots \texttt{nHeads} - 1$, so that $H \equiv \texttt{nHeads}$.\\
+
+Generalize $K$ in dimensiosn $k\times D$ of $U^{(m)}_{q;h}$ to \texttt{qSize} $\equiv D_q$, i.e.
+\[
+\mathbf{q} \equiv \mathbf{q}^{(m)}_{h ; n} = U^{(m)}_{q;h} \mathbf{x}_n^{(m-1)} \in F^{D_q}, \quad \,  U^{(m)}_{q;h} \in \text{Mat}_F(D_q, D)
+\] 
+
+See \href{https://docs.nvidia.com/deeplearning/cudnn/api/index.html#cudnnSetAttnDescriptor}{7.2.45. \texttt{cudnnSetAttnDescriptor}}
 
 \end{multicols*}
-
 
 \begin{thebibliography}{9}
 
 \bibitem{Yang2021} 
 Greg Yang. "Tensor Programs I: Wide Feedforward or Recurrent Neural Networks of Any Architecture are Gaussian Processes." \href{https://arxiv.org/pdf/1910.12478.pdf}{arXiv:1910.12478v3} 8 May 2021
+
+\bibitem{Turn2023}
+Richard E. Turner. "An Introduction to Transformers". \href{https://arxiv.org/pdf/2304.10557.pdf}{arXiv:2304.10557v3 cs.LG 4 Jul 2023}
+
+\bibitem{NSAtn2023}
+NVIDIA. "7.2.45 \texttt{cudnnSetAttnDescriptor}". cuDNN API Documentation. \href{https://docs.nvidia.com/deeplearning/cudnn/api/index.html#cudnnSetAttnDescriptor}{7.2.45. \texttt{cudnnSetAttnDescriptor}}
 
 \end{thebibliography}
 \end{document}

@@ -78,6 +78,5 @@ bool build_with_NVRTC_if_dynamic(
   return handle_build_dynamic.is_success();
 }
 
-
 } // namespace ManageDescriptor
 } // namespace RecurrentNeuralNetwork

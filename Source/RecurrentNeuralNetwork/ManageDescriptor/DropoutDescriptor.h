@@ -45,6 +45,17 @@ class DropoutDescriptor
     void* states_;
 
     bool is_states_size_known_;
+
+    inline bool is_descriptor_set() const
+    {
+      return is_descriptor_set_;
+    }
+
+  friend class SetDropoutDescriptor;
+
+  private:
+
+    bool is_descriptor_set_;
 };
 
 } // namespace ManageDescriptor

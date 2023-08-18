@@ -39,6 +39,11 @@ HandleUnsuccessfulCuDNNCall SetDropoutDescriptor::set_descriptor(
       descriptor.states_size_,
       seed_));
 
+    if (handle_set_descriptor.is_success())
+    {
+      descriptor.is_descriptor_set_ = true;
+    }
+
     return handle_set_descriptor;
   }
   else

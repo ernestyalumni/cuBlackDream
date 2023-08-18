@@ -52,8 +52,6 @@ class SetDropoutDescriptor
     //--------------------------------------------------------------------------
     float dropout_;
 
-  private:
-
     // Seed used to initialize random number generator states.
     unsigned long long seed_;
 };

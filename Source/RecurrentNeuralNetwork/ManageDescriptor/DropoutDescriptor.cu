@@ -5,6 +5,7 @@
 
 #include <cudnn.h>
 #include <cuda_runtime.h> // cudaFree, cudaMallocManaged
+#include <stdexcept>
 
 using DeepNeuralNetwork::CuDNNLibraryHandle;
 using Utilities::ErrorHandling::HandleUnsuccessfulCUDACall;
@@ -19,7 +20,8 @@ DropoutDescriptor::DropoutDescriptor():
   descriptor_{},
   states_size_{0},
   states_{nullptr},
-  is_states_size_known_{false}
+  is_states_size_known_{false},
+  is_descriptor_set_{false}
 {
   HandleUnsuccessfulCuDNNCall create_descriptor {
     "Failed to create dropout descriptor"};
@@ -29,6 +31,11 @@ DropoutDescriptor::DropoutDescriptor():
   // dropout descriptor object by allocating memory needed to hold its opaque
   // structure.
   create_descriptor(cudnnCreateDropoutDescriptor(&descriptor_));
+
+  if (!create_descriptor.is_success())
+  {
+    throw std::runtime_error(create_descriptor.get_error_message());
+  }
 }
 
 HandleUnsuccessfulCuDNNCall DropoutDescriptor::get_states_size_for_forward(
@@ -57,10 +64,13 @@ DropoutDescriptor::~DropoutDescriptor()
   // https://docs.nvidia.com/deeplearning/cudnn/api/index.html#cudnnDestroyDropoutDescriptor
   destroy_descriptor(cudnnDestroyDropoutDescriptor(descriptor_));
 
-  HandleUnsuccessfulCUDACall handle_free_memory {
-    "Failed to free device memory for random number generator states"};
+  if (states_ != nullptr)
+  {
+    HandleUnsuccessfulCUDACall handle_free_memory {
+      "Failed to free device memory for random number generator states"};
 
-  handle_free_memory(cudaFree(states_));
+    handle_free_memory(cudaFree(states_));
+  }
 }
 
 } // namespace ManageDescriptor

@@ -4,7 +4,6 @@
 #include "DeepNeuralNetwork/CuDNNLibraryHandle.h"
 #include "RecurrentNeuralNetwork/ManageDescriptor/Descriptor.h"
 #include "RecurrentNeuralNetwork/ManageDescriptor/DropoutDescriptor.h"
-#include "RecurrentNeuralNetwork/ManageDescriptor/SetRNNDescriptor.h"
 #include "RecurrentNeuralNetwork/Parameters.h"
 
 namespace RecurrentNeuralNetwork
@@ -16,7 +15,7 @@ namespace ManageDescriptor
 struct LibraryHandleDropoutRNN
 {
   LibraryHandleDropoutRNN(
-    const RecurrentNeuralNetwork::Parameters parameters,
+    const RecurrentNeuralNetwork::Parameters& parameters,
     const float dropout_probability = 0,
     const unsigned long long seed = 1337ull);
 

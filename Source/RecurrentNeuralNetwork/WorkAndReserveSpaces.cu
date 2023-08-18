@@ -1,5 +1,6 @@
 #include "WorkAndReserveSpaces.h"
 
+#include "DeepNeuralNetwork/CuDNNLibraryHandle.h"
 #include "RecurrentNeuralNetwork/ManageDescriptor/DataDescriptor.h"
 #include "RecurrentNeuralNetwork/ManageDescriptor/Descriptor.h"
 #include "RecurrentNeuralNetwork/ManageDescriptor/InputDescriptor.h"
@@ -7,6 +8,7 @@
 #include "Utilities/ErrorHandling/HandleUnsuccessfulCuDNNCall.h"
 #include "Utilities/ErrorHandling/HandleUnsuccessfulCudaCall.h"
 
+#include <cuda_runtime.h> // cudaFree
 #include <cudnn.h>
 #include <stdexcept>
 

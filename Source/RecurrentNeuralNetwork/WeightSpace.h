@@ -8,6 +8,7 @@
 #include "Utilities/ErrorHandling/HandleUnsuccessfulCudaCall.h"
 
 #include <cstddef>
+#include <cuda_runtime.h>
 #include <cudnn.h>
 
 namespace RecurrentNeuralNetwork

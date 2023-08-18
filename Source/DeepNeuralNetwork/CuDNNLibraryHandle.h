@@ -22,6 +22,9 @@ class CuDNNLibraryHandle
 
     //--------------------------------------------------------------------------
     /// \ref 3.2.20. cudnnDestroy()
+    /// This function releases resources used by cuDNN handle. Because
+    /// cudnnCreate() allocates internal resources, release of those resources
+    /// by calling cudnnDestroy() will implicitly call cudaDeviceSynchronize().
     /// https://docs.nvidia.com/deeplearning/cudnn/api/index.html#cudnnDestroy
     /// It's recommended best practice to call this outside of perforance-
     /// critical code paths.

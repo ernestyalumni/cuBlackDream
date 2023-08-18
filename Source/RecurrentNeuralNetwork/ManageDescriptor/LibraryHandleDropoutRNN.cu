@@ -16,7 +16,7 @@ namespace ManageDescriptor
 {
 
 LibraryHandleDropoutRNN::LibraryHandleDropoutRNN(
-  const Parameters parameters,
+  const Parameters& parameters,
   const float dropout_probability,
   const unsigned long long seed):
   handle_{},
@@ -28,7 +28,13 @@ LibraryHandleDropoutRNN::LibraryHandleDropoutRNN(
   dropout_descriptor_.get_states_size_for_forward(handle_);
 
   SetDropoutDescriptor set_dropout_descriptor {dropout_probability, seed};
-  set_dropout_descriptor.set_descriptor(dropout_descriptor_, handle_);
+  const auto dropout_result =
+    set_dropout_descriptor.set_descriptor(dropout_descriptor_, handle_);
+
+  if (!dropout_result.is_success())
+  {
+    throw std::runtime_error(dropout_result.get_error_message());
+  }
 
   const auto result =
     set_rnn_descriptor(descriptor_, parameters, dropout_descriptor_);

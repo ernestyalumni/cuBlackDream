@@ -28,6 +28,12 @@ SET(TEST_CU_SOURCES
   Tensors/ManageDescriptor/SetFor4DTensor_tests.cu
   Tensors/ManageDescriptor/SetForNDTensor_tests.cu
   Tensors/ManageDescriptor/TensorDescriptor_tests.cu
+  Transformer/Attention/WeightWorkAndReserveSpaces_tests.cu
+  Transformer/ManageDescriptor/AttentionDescriptor_tests.cu
+  Transformer/ManageDescriptor/LibraryHandleDropoutsAttention_tests.cu
+  Transformer/ManageDescriptor/SetSequenceDataDescriptor_tests.cu
+  Transformer/ManageDescriptor/SetAttentionDescriptor_tests.cu
+  Transformer/TestValues.cu
   Utilities/DeviceManagement/GetCUDADeviceProperties_tests.cu
   Utilities/CuDNNDataTypeToType_tests.cu
   )
@@ -42,6 +48,7 @@ TARGET_LINK_LIBRARIES(Check
   DeepNeuralNetworkCU
   RecurrentNeuralNetworkCU
   TensorsCU
+  TransformerCU
   UtilitiesCU
   gtest_main)
 

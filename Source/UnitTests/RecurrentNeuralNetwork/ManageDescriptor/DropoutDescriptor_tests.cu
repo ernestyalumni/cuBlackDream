@@ -28,9 +28,8 @@ TEST(DropoutDescriptor, Destructs)
 {
   {
     DropoutDescriptor dropout_descriptor {};
-
-    SUCCEED();
   }
+  SUCCEED();
 }
 
 //------------------------------------------------------------------------------
@@ -45,6 +44,23 @@ TEST(DropoutDescriptor, GetsStates)
   EXPECT_TRUE(result.is_success());
   EXPECT_TRUE(dropout_descriptor.is_states_size_known_);
   EXPECT_TRUE(dropout_descriptor.states_ != nullptr);
+}
+
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+TEST(DropoutDescriptor, DestructsAfterGetsStates)
+{
+  {
+    DropoutDescriptor dropout_descriptor {};
+    CuDNNLibraryHandle handle {};
+
+    const auto result = dropout_descriptor.get_states_size_for_forward(handle);
+
+    ASSERT_TRUE(result.is_success());
+    ASSERT_TRUE(dropout_descriptor.is_states_size_known_);
+  }
+
+  SUCCEED();
 }
 
 } // namespace ManageDescriptor

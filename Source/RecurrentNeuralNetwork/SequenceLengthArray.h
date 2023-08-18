@@ -51,6 +51,10 @@ class SequenceLengthArray
     //--------------------------------------------------------------------------
     /// https://docs.nvidia.com/deeplearning/cudnn/api/index.html#cudnnRNNForward
     /// \ref 7.2.36.cudnnRNNForward()
+    /// devSeqLengths. Input. A copy of seqLengthArray from xDesc or yDesc RNN
+    /// data descriptor. devSeqLengths array must be stored in GPU memory as it
+    /// is accessed asynchronoously by GPU kernels, possibly after
+    /// cudnnRNNForward() function exists.
     //--------------------------------------------------------------------------
     int32_t* sequence_length_array_;
 
