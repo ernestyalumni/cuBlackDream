@@ -1,0 +1,39 @@
+# To run, do
+# docker-compose up
+# This docker-compose file was made to try to run this command
+# docker run -v /home/ernest/Eng/cuBlackDream:/cuBlackDream --gpus all -it -p 8888:8888 tensorflow/tensorflow:latest-gpu-jupyter jupyter notebook --notebook-dir=/cuBlackDream --ip 0.0.0.0 --allow-root
+
+version: '3.8'
+
+services:
+  tensorflow:
+
+    # To directly use the image without a Dockerfile: (we run the following)
+    image: tensorflow/tensorflow:latest-gpu-jupyter
+    # Maps container's port 8888 to host's post 8888
+    ports:
+      - "8888:8888"
+    # mounts local directory to directory in container.
+    volumes:
+      # Change this manually to your local setup.
+      - /home/ernest/Eng/cuBlackDream:/cuBlackDream
+    command: [
+      "jupyter",
+      "notebook",
+      "--notebook-dir=/cuBlackDream",
+      "--ip",
+      "0.0.0.0",
+      "--allow-root"]
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    # deploy is a directive used to specify GPU resources for service; this is
+    # equivalent to --gpus all
+    deploy:
+      resources:
+        reservations:
+          devices:
+          - driver: nvidia
+            # Indicates container should have access to all available GPUs;
+            # -1 acts as a wildcard, meaning "all available."
+            count: -1
+            capabilities: [gpu]
