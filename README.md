@@ -57,3 +57,8 @@ deactivate
 
 If so, then maybe this is the stuff of *black dreams.*  
 
+## TensorFlow and Docker
+
+Reference [Download a TensorFlow Docker image](https://www.tensorflow.org/install/docker)
+
+Go to `Scripts/TensorFlowDocker` for a shell script that has the commands to run.
