@@ -62,3 +62,12 @@ If so, then maybe this is the stuff of *black dreams.*
 Reference [Download a TensorFlow Docker image](https://www.tensorflow.org/install/docker)
 
 Go to `Scripts/TensorFlowDocker` for a shell script that has the commands to run.
+
+## `pytest`
+
+You will need to run the unit tests for Python code from the "root" or "top" of this repository:
+
+```
+/cuBlackDream# pytest ./unit_tests/PyTorch
+```
+for example, in order to import modules from `CuISOX`.

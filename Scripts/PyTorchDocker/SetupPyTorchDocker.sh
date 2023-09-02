@@ -1,3 +1,7 @@
+# For docker-compose
+sudo apt-get update
+sudo apt-get install docker-compose-plugin
+
 # https://docs.nvidia.com/deeplearning/frameworks/pytorch-release-notes/running.html
 # Also, see
 # https://catalog.ngc.nvidia.com/orgs/nvidia/containers/pytorch

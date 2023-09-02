@@ -13,3 +13,4 @@ PYTHONPATH along, or placing __init__.py into dirs where it doesn't belong.
 """
 
 import pytest
+import requests

@@ -1,3 +1,7 @@
+# For docker-compose
+sudo apt-get update
+sudo apt-get install docker-compose-plugin
+
 # Reference https://www.tensorflow.org/install/docker "Download a TensorFlow Docker image"
 # Official TensorFlow Docker images located in tensorflow/tensorflow.
 # Tag latest - latest release of TensorFlow CPU binary image, Default.
