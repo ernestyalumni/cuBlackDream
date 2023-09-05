@@ -46,7 +46,15 @@ def project_path():
 
 class DataPaths:
 
-    data_subdirectory_name = "data"
+    data_subdirectory_name = "Data"
+
+    def list_all_files_in_directory(path):
+        return list(path.iterdir())
+
+    def get_path_with_substring(list_of_paths, input_substring = ""):
+        def is_match_with_substring(path):
+            return str(path).find(input_substring) != -1
+        return list(filter(is_match_with_substring, list_of_paths))
 
     def Kaggle(self):
         """

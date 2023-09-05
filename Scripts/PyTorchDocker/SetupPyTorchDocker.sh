@@ -27,7 +27,7 @@ docker run -v /home/propdev/Prop/cuBlackDream:/cuBlackDream --gpus all -it --rm 
 
 docker run --gpus all --ipc=host --ulimit memlock=-1 --ulimit stack=67108864
 
-docker run -v /home/propdev/Prop/cuBlackDream:/cuBlackDream --gpus all -it -p 8888:8888 --rm --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 nvcr.io/nvidia/pytorch:23.08-py3
+docker run -v /home/propdev/Prop/cuBlackDream:/cuBlackDream --gpus all -e NVIDIA_DISABLE_REQUIRE=1 -it -p 8888:8888 --rm --ipc=host --ulimit memlock=-1 --ulimit stack=67108864 nvcr.io/nvidia/pytorch:23.08-py3
 
 # You may see the following if you run 
 jupyter notebook

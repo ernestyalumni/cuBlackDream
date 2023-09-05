@@ -1,0 +1,9 @@
+Kaggle:
+  link: "https://www.kaggle.com/"
+  description: "Kaggle data sets"
+  name: "Kaggle"
+  datasets:
+    DigitRecognizer:
+      link: "https://www.kaggle.com/competitions/digit-recognizer/data?select=test.csv"
+      description: "MNIST data, gray-scale images of hand-drawn digits"
+      name: "Digit Recognizer"  

@@ -23,8 +23,15 @@ if [ ! -d "$path_to_mount" ]; then
 fi
 
 # Run command
-command="docker run -v $path_to_mount:/cuBlackDream --gpus all -it -p "
-command+="8888:8888 --rm --ipc=host --ulimit memlock=-1 --ulimit "
+# -it - i stands for interactive, so this flag makes sure that standard input
+# ('STDIN') remains open even if you're not attached to container.
+# -t stands for pseudo-TTY, allocates a pseudo terminal inside container, used
+# to make environment inside container feel like a regular shell session.
+command="docker run -v $path_to_mount:/cuBlackDream --gpus all -it "
+# -e flag sets environment and enables CUDA Forward Compatibility instead of
+# default CUDA Minor Version Compatibility.
+command+="-e NVIDIA_DISABLE_REQUIRE=1 "
+command+="-p 8888:8888 --rm --ipc=host --ulimit memlock=-1 --ulimit "
 command+="stack=67108864 nvcr.io/nvidia/pytorch:23.08-py3 "
 
 echo $command
