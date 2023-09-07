@@ -14,6 +14,24 @@ class ProcessDigitsData:
     self.random_state = random_state
     self.batch_size = batch_size
 
+  @staticmethod
+  def parse_csv_no_split(file_path, dtype_input=np.float32):
+    data_csv = pd.read_csv(file_path, dtype=dtype_input)
+
+    # Divide by 255 to normalize
+    X_numpy = data_csv.loc[:].values / 255
+
+    X_numpy = torch.from_numpy(X_numpy)
+    return X_numpy
+
+  @staticmethod
+  def load_data_no_split(X_numpy, input_batch_size):
+    tensor_data_set = TensorDataset(X_numpy)
+    return DataLoader(
+      tensor_data_set,
+      batch_size=input_batch_size,
+      shuffle=False)
+
   def parse_csv(self, file_path, dtype_input=np.float32):
     training_data_csv = pd.read_csv(file_path, dtype=dtype_input)
 
@@ -59,3 +77,6 @@ class ProcessDigitsData:
       testing,
       batch_size=self.batch_size,
       shuffle=False)
+
+  def calculate_epoch(self, number_of_iterations, batch_size):
+    return int(number_of_iterations / (len(self.X_training) / batch_size))

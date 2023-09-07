@@ -48,9 +48,11 @@ class DataPaths:
 
     data_subdirectory_name = "Data"
 
+    @staticmethod
     def list_all_files_in_directory(path):
         return list(path.iterdir())
 
+    @staticmethod
     def get_path_with_substring(list_of_paths, input_substring = ""):
         def is_match_with_substring(path):
             return str(path).find(input_substring) != -1

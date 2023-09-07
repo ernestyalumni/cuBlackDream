@@ -105,6 +105,7 @@ class LSTMWithLinearOutput(nn.Module):
     @return outputs, loss
     outputs are the result of "forward" operation by the network, in this case
     LSTM + linear transformation.
+    Dimensions of outpus is (batch size, hidden_size) = (N, H)
     """
 
     # Load images as a torch tensor with gradient accumulation abilities.
@@ -115,8 +116,8 @@ class LSTMWithLinearOutput(nn.Module):
     # operations on a Tensor tensor.
     image_batch_transformed = image_batch.view(
       -1,
-      self.input_dim,
-      self.sequence_length).requires_grad_()
+      self.sequence_length,
+      self.input_dim).requires_grad_()
 
     # Clear gradients with respect to parameters.
     self.loss_and_optimizer.optimizer.zero_grad()
@@ -136,7 +137,66 @@ class LSTMWithLinearOutput(nn.Module):
 
     return outputs, loss
 
+  def calculate_accuracy(self, image_batch, labels):
+    image_batch_transformed = image_batch.view(
+      -1,
+      self.sequence_length,
+      self.input_dim)
+
+    # Forward pass only to get logits/output.
+    outputs = self.forward(image_batch_transformed)
+
+    # Get predictions from the maximum value
+    # https://pytorch.org/docs/stable/generated/torch.max.html?highlight=max
+    # torch.max(input) -> Tensor
+    # Returns maximum value of all elements in input tensor.
+    # @param input (Tensor) - input tensor
+    # param dim (int) the dimension to reduce
+    # returns tuple of 2 output tensors, (max, max_indices)
+    _, predicted = torch.max(outputs.data, 1)
+
+    # Total number of correct predictions
+    return (predicted == labels).sum()
+
   class LossAndOptimizer:
     def __init__(self, model_parameters, learning_rate = 0.1):
       self.cross_entropy_loss = nn.CrossEntropyLoss()
       self.optimizer = torch.optim.SGD(model_parameters, lr=learning_rate)
+
+
+def train_LSTMWithLinearOutput_model_on_images(
+  lstm_model,
+  loaded_data,
+  number_of_epochs
+  ):
+  lost_list = []
+  iteration_list = []
+  accuracy_list = []
+  count = 0
+  for epoch in range(number_of_epochs):
+    for i, (batch, labels) in enumerate(loaded_data.training_loader):
+      outputs, loss = lstm_model.run_on_image_batch(batch, labels)
+      count += 1
+
+      if count % 500 == 0:
+        # Calculate Accuracy
+        correct = 0
+        total = 0
+
+        for images_batch, batch_labels in loaded_data.test_loader:
+
+          correct += lstm_model.calculate_accuracy(images_batch, batch_labels)
+          total += batch_labels.size(0)
+        accuracy = 100 * correct / total
+
+        lost_list.append(loss)
+        iteration_list.append(count)
+        accuracy_list.append(accuracy)
+
+        # Print loss
+        print('Iteration: {}, Loss: {}, Accuracy: {}'.format(
+          count,
+          loss.data.item(),
+          accuracy))
+
+  return lost_list, iteration_list, accuracy_list

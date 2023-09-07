@@ -6,7 +6,7 @@ import pytest
 import torch
 
 def test_LSTMWithLinearOutput_constructs():
-  lstm_with_linear_out = LSTMWithLinearOutput(69, 42, 2, 11)
+  lstm_with_linear_out = LSTMWithLinearOutput(69, 42, 2, 11, 28)
   assert lstm_with_linear_out.hidden_dim == 42
   assert lstm_with_linear_out.layer_dim == 2
 
@@ -17,7 +17,7 @@ def test_LSTMWithLinearOutput_constructs():
   assert lstm_with_linear_out.fc.bias.size() == (11,)
 
 def test_LSTMWithLinearOutput_has_parameters():
-  lstm_with_linear_out = LSTMWithLinearOutput(42, 69, 2, 70)
+  lstm_with_linear_out = LSTMWithLinearOutput(42, 69, 2, 70, 29)
   parameters = lstm_with_linear_out.parameters()
   parameters_list = list(parameters)
   assert len(parameters_list) == 10
@@ -33,7 +33,7 @@ def test_LSTMWithLinearOutput_has_parameters():
   assert parameters_list[9].size() == (70,)
 
 def test_LSTMWithLinearOutput_has_parameters_on_simple_classification_problem():
-  lstm_with_linear_out = LSTMWithLinearOutput(4, 3, 1, 1)
+  lstm_with_linear_out = LSTMWithLinearOutput(4, 3, 1, 1, 27)
   parameters = lstm_with_linear_out.parameters()
   parameters_list = list(parameters)
   assert len(parameters_list) == 6
@@ -48,7 +48,7 @@ def test_LSTMWithLinearOutput_cross_entropy_loss_on_simple_classification():
   """
   @brief Test cross entropy loss on a simple classification problem.
   """
-  lstm_with_linear_out = LSTMWithLinearOutput(4, 3, 1, 1)
+  lstm_with_linear_out = LSTMWithLinearOutput(4, 3, 1, 1, 1)
 
   input_1 = torch.tensor([[2.5, -1.3, 0.8]])
   labels_1 = torch.tensor([0,])
