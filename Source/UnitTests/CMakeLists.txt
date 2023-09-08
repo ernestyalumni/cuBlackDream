@@ -8,6 +8,7 @@ SET(TEST_CU_SOURCES
   Algebra/Modules/Vectors/RunTimeVoidPtrArray_tests.cu
   Algebra/Modules/Vectors/VoidPtrArray_tests.cu
   DeepNeuralNetwork/cuDNNLibraryHandle_tests.cu
+  Networks/RecurrentNeuralNetworks/LSTM/LSTM_tests.cu
   RecurrentNeuralNetwork/ManageDescriptor/DataDescriptor_tests.cu
   RecurrentNeuralNetwork/ManageDescriptor/DropoutDescriptor_tests.cu
   RecurrentNeuralNetwork/ManageDescriptor/HiddenDescriptor_tests.cu

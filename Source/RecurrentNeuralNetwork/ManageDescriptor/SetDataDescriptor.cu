@@ -50,13 +50,28 @@ HandleUnsuccessfulCuDNNCall SetDataDescriptor::set_descriptor_for_output(
   HandleUnsuccessfulCuDNNCall handle_set_descriptor {
     "Failed to set RNN Data descriptor"};
 
+  int vector_size {
+    parameters.hidden_size_ * parameters.get_bidirectional_scale()};
+
+  // https://docs.nvidia.com/deeplearning/cudnn/api/index.html#cudnnSetRNNDescriptor_v8
+  // Recurrent projection can be enabled for LSTM cells and
+  // CUDNN_RNN_ALGO_STANDARD only.
+
+  if ((parameters.cell_mode_ == CUDNN_LSTM) &&
+    (parameters.algo_ == CUDNN_RNN_ALGO_STANDARD) &&
+    (parameters.hidden_size_ > parameters.projection_size_))
+  {
+    vector_size =
+      parameters.projection_size_ * parameters.get_bidirectional_scale();
+  }
+
   handle_set_descriptor(cudnnSetRNNDataDescriptor(
     descriptor.descriptor_,
     parameters.data_type_,
     layout_,
     parameters.maximum_sequence_length_,
     parameters.batch_size_,
-    parameters.hidden_size_ * parameters.get_bidirectional_scale(),
+    vector_size,
     sequence_length_array.sequence_length_array_,
     reinterpret_cast<void*>(&padding_fill_)));
 

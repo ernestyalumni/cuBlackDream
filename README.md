@@ -45,6 +45,15 @@ deactivate
 
 ## Glossary for directory/Explanation of Folder Structure here  
 
+- `CuISOX`: Any Python code for Deep Learning, including implementations in both PyTorch and TensorFlow, for comparison against CUDA C++ code, in general. Stands for *Cu*da *I*n *S*ervice *O*f *X*.
+- `Data`: Use this directory to store datasets locally that are external to the code.
+- `data`: *old, deprecated* directory for (external) datasets.
+- `Documents`: Useful pdf or text references from external sources and typed-up notes in LaTeX and pdf.
+- `Notebooks`: Jupyter Notebooks to run, typically with the Python `CuISOX` library.
+- `performance_tests`: We want to keep unit tests separate from integration tests and these tests for performance, namely speed of execution.
+
+## [Deprecated] Glossary for directory/Explanation of Folder Structure here  
+
 - `src`  : source files, the actual code
 - `examples` 
 - `data` : sample datasets 

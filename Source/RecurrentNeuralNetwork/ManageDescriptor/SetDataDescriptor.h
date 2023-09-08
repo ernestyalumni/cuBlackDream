@@ -46,11 +46,25 @@ class SetDataDescriptor
     /// tensor at each time-step.
     //--------------------------------------------------------------------------
 
+    //--------------------------------------------------------------------------
+    /// \details Use parameters to ensure length of this vector is the same as
+    /// input size (inputSize).
+    //--------------------------------------------------------------------------
     HandleUnsuccessfulCuDNNCall set_descriptor_for_input(
       DataDescriptor& descriptor,
       const Parameters& parameters,
       const SequenceLengthArray& sequence_length_array);
 
+    //--------------------------------------------------------------------------
+    /// https://docs.nvidia.com/deeplearning/cudnn/api/index.html#cudnnRNNForward
+    /// \ref 7.2.36. cudnnRNNForward()
+    /// \details dataType, layout, maxSeqLength, batchSize, and seqLengthArray
+    /// must match that of xDesc.
+    /// For uni-direcctional models, vectorSize must match hiddenSize passed to
+    /// cudnnSetRNNDescriptor_v8().
+    /// If LSTM projection enabled, vectorSize must be same as projSize argument
+    /// passed to cudnnSetRNNDescriptor_v8().
+    //--------------------------------------------------------------------------
     HandleUnsuccessfulCuDNNCall set_descriptor_for_output(
       DataDescriptor& descriptor,
       const Parameters& parameters,

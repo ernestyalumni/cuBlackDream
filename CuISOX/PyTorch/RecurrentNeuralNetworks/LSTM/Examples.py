@@ -15,6 +15,13 @@ class LSTMWithLinearOutput(nn.Module):
     sequence_length,
     learning_rate=0.1):
     """
+    @details Example values:
+    D, number of features, input_dim = 28
+    H, size of a hidden vector = 100
+    L, layer_dim = number of layers = 1
+    D_Y, output_dim = size of output = 10 (for number of digits, 0-9)
+    T = sequence_length = 28 (for the 28 columns in a 28x28 image)
+
     @param layer_dim-same as num_layers or number of recurrent layers.
     @param output_dim-Unrelated to LSTM. This is the size of the result after
     applying a linear transform at the end.
@@ -99,6 +106,13 @@ class LSTMWithLinearOutput(nn.Module):
     out = self.fc(out[:, -1, :])
     # out.size() --> 100, 10
     return out
+
+  def run_forward_on_image_batch(self, image_batch):
+    image_batch_transformed = image_batch.view(
+      -1,
+      self.sequence_length,
+      self.input_dim).requires_grad_()
+    return self.forward(image_batch_transformed)
   
   def run_on_image_batch(self, image_batch, labels):
     """
@@ -200,3 +214,18 @@ def train_LSTMWithLinearOutput_model_on_images(
           accuracy))
 
   return lost_list, iteration_list, accuracy_list
+
+def predict_on_images(
+  lstm_model : torch.nn.Module,
+  loaded_data : torch.utils.data.DataLoader
+  ):
+  predictions = []
+  # batch is expected to be a list of length 1, and the 0th element is
+  # torch.Tensor type.
+  for i, batch in enumerate(loaded_data):
+    outputs = lstm_model.run_forward_on_image_batch(batch[0])
+
+    _, predicted = torch.max(outputs.data, 1)
+
+    predictions.append(predicted)
+  return predictions

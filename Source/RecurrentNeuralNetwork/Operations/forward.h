@@ -66,6 +66,10 @@ namespace Operations
 /// * if dirMode is CUDNN_UNIDIRECTIONAL, first dimension should match
 /// numLayers argument passed to cudnnSetRNNDescriptor_v8().
 ///
+/// \param [in] xDesc -
+/// dataType, layout, maxSeqLength, batchSize, and seqLengthArray must match
+/// that of yDesc. vectorSize must match inputSize argument passed to
+/// cudnnSetRNNDescriptor_v8().
 /// \param yDesc - Input. Previously initialized RNN data descriptor. The
 /// dataType, layout, maxSeqLength, batchSize, seqLengthArray must match that of
 /// xDesc. Parameter vectorSize depends on whether LSTM projection is enabled

@@ -14,6 +14,10 @@ namespace ManageDescriptor
 
 struct InputDescriptor
 {
+  //----------------------------------------------------------------------------
+  /// \ref https://docs.nvidia.com/deeplearning/cudnn/api/index.html#cudnnRNNDataLayout_t
+  /// 7.1.2.6. cudnnRNNDataLayout_t
+  //----------------------------------------------------------------------------
   InputDescriptor(
     RecurrentNeuralNetwork::Parameters& parameters,
     RecurrentNeuralNetwork::SequenceLengthArray& sequence_length_array,

@@ -37,6 +37,12 @@ class HostSequenceLengthArray
 /// must be greater than or equal to 0 but less than or equal to maxSeqLength.
 /// In packed layout, elements should be sorted in descending order, similar to
 /// the layout required by non-extended RNN compute functions.
+///
+/// \details If
+/// N = batch size,
+/// T = (maximum) sequence length,
+/// T_b = sequence length of bth sample in the batch,
+/// then this sequence length array is (T_1, T_2, ..., T_N) where 0 < T_b <= T
 //------------------------------------------------------------------------------
 class SequenceLengthArray
 {
