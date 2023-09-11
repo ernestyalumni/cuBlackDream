@@ -52,6 +52,8 @@ deactivate
 - `Notebooks`: Jupyter Notebooks to run, typically with the Python `CuISOX` library.
 - `performance_tests`: We want to keep unit tests separate from integration tests and these tests for performance, namely speed of execution.
 
+- `Source/FrontEnd`: Wrappers for `cuDNN`'s FrontEnd API. From the API's samples, it seems that there's still quite a bit of work needed to use the API to construct networks.
+
 ## [Deprecated] Glossary for directory/Explanation of Folder Structure here  
 
 - `src`  : source files, the actual code
@@ -80,3 +82,8 @@ You will need to run the unit tests for Python code from the "root" or "top" of 
 /cuBlackDream# pytest ./unit_tests/PyTorch
 ```
 for example, in order to import modules from `CuISOX`.
+
+## Further notes on NVIDIA's `cuDNN` documentation
+
+### Notes on Developer Guid
+

@@ -30,7 +30,6 @@
 
 #include <iostream>
 
-
 int main(int argc, char* argv[]) { 
 	constexpr const int m=6; 								// a - mxk matrix
 	constexpr const int n=4;								// b - kxn matrix
@@ -103,8 +102,6 @@ int main(int argc, char* argv[]) {
 	Rmodule.load_from_hXvec(a,m);
 	Rmodule.init_al(m);
 
-
-
 	std::vector<int> sizeDims = Rmodule.getSizeDims();
 	
 	const int s_lm1 = sizeDims[0];
@@ -158,8 +155,6 @@ int main(int argc, char* argv[]) {
 	}
 	std::cout << std::endl;
 
-	
-
 	/* ========================= Axon_act ========================= */
 
 	std::cout << std::endl << " Doing it for Axon_act class : " << std::endl << std::endl;
@@ -206,5 +201,4 @@ int main(int argc, char* argv[]) {
 		}
 		std::cout << std::endl;
 	}
-
 }

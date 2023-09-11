@@ -8,6 +8,8 @@ SET(TEST_CU_SOURCES
   Algebra/Modules/Vectors/RunTimeVoidPtrArray_tests.cu
   Algebra/Modules/Vectors/VoidPtrArray_tests.cu
   DeepNeuralNetwork/cuDNNLibraryHandle_tests.cu
+  FrontEnd/Tensors/CreateTensor_tests.cu
+  FrontEnd/Tensors/Tensors_tests.cu
   Networks/RecurrentNeuralNetworks/LSTM/LSTM_tests.cu
   RecurrentNeuralNetwork/ManageDescriptor/DataDescriptor_tests.cu
   RecurrentNeuralNetwork/ManageDescriptor/DropoutDescriptor_tests.cu
@@ -51,7 +53,10 @@ TARGET_LINK_LIBRARIES(Check
   TensorsCU
   TransformerCU
   UtilitiesCU
-  gtest_main)
+  gmock_main
+  gtest_main
+  cudnn_frontend
+  )
 
 INCLUDE(GoogleTest)
 gtest_discover_tests(Check)
