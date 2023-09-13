@@ -6,4 +6,8 @@ Kaggle:
     DigitRecognizer:
       link: "https://www.kaggle.com/competitions/digit-recognizer/data?select=test.csv"
       description: "MNIST data, gray-scale images of hand-drawn digits"
-      name: "Digit Recognizer"  
+      name: "Digit Recognizer"
+    Sunspots:
+      link: "https://www.kaggle.com/datasets/robervalt/sunspots?select=Sunspots.csv"
+      description: "Sunspots - Monthly Mean Total Sunspot Number"
+      name: "Sunspots"

@@ -5,6 +5,11 @@ SET(UTILITIES_CU_SOURCES
   ErrorHandling/HandleUnsuccessfulCuDNNCall.cu
   )
 
+SET(UTILITIES_SOURCES
+  Time/WrangleDates.cpp
+  )
+
 ADD_LIBRARY(UtilitiesCU
   ${UTILITIES_CU_SOURCES}
+  ${UTILITIES_SOURCES}
   )

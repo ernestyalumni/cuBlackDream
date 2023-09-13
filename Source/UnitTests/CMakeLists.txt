@@ -41,13 +41,20 @@ SET(TEST_CU_SOURCES
   Utilities/CuDNNDataTypeToType_tests.cu
   )
 
+SET(TEST_SOURCES
+  DataWrangling/Kaggle/TransformDigitRecognizerData_tests.cpp
+  Utilities/FileIO/DataPaths_tests.cpp
+  )
+
 ADD_EXECUTABLE(Check
   ${TEST_CU_SOURCES}
+  ${TEST_SOURCES}
   )
 
 TARGET_LINK_LIBRARIES(Check
   ActivationCU
   AlgebraCU
+  DataWrangling
   DeepNeuralNetworkCU
   RecurrentNeuralNetworkCU
   TensorsCU
