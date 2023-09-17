@@ -2,6 +2,8 @@
 #include "RecurrentNeuralNetwork/Parameters.h"
 #include "gtest/gtest.h"
 
+#include <cudnn.h>
+
 using RecurrentNeuralNetwork::ManageDescriptor::HiddenDescriptor3Dim;
 using RecurrentNeuralNetwork::ManageDescriptor::HiddenDescriptor;
 using RecurrentNeuralNetwork::DefaultParameters;
@@ -122,6 +124,128 @@ TEST(HiddenDescriptor3DimTests, ConstructsWithParameters)
   HiddenDescriptor3Dim hidden_descriptor {parameters};
 
   SUCCEED();
+}
+
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+TEST(
+  HiddenDescriptor3DimTests,
+  ConstructsWithParametersSetForTanhUnidirectional)
+{
+  DefaultParameters parameters {};
+  parameters.cell_mode_ = CUDNN_RNN_TANH;
+  parameters.input_size_ = 784;
+  parameters.hidden_size_ = 100;
+  parameters.projection_size_ = 10;
+  parameters.maximum_sequence_length_ = 28;
+  parameters.batch_size_ = 100;
+
+
+  HiddenDescriptor<3> hidden_descriptor {parameters};
+
+  EXPECT_EQ(
+    hidden_descriptor.set_for_ND_tensor_.get_dimensions_array_value(0),
+    2);
+
+  EXPECT_EQ(
+    hidden_descriptor.set_for_ND_tensor_.get_dimensions_array_value(1),
+    100);
+
+  EXPECT_EQ(
+    hidden_descriptor.set_for_ND_tensor_.get_dimensions_array_value(2),
+    100);
+
+  EXPECT_EQ(
+    hidden_descriptor.set_for_ND_tensor_.get_strides_array_value(0),
+    10000);
+
+  EXPECT_EQ(
+    hidden_descriptor.set_for_ND_tensor_.get_strides_array_value(1),
+    100);
+
+  EXPECT_EQ(
+    hidden_descriptor.set_for_ND_tensor_.get_strides_array_value(2),
+    1);
+}
+
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+TEST(HiddenDescriptor3DimTests, ConstructsWithParametersSetForGRUBidirectional)
+{
+  DefaultParameters parameters {};
+  parameters.cell_mode_ = CUDNN_GRU;
+  parameters.direction_mode_ = CUDNN_BIDIRECTIONAL;
+  parameters.input_size_ = 784;
+  parameters.hidden_size_ = 100;
+  parameters.projection_size_ = 10;
+  parameters.maximum_sequence_length_ = 28;
+  parameters.batch_size_ = 100;
+
+  HiddenDescriptor<3> hidden_descriptor {parameters};
+
+  EXPECT_EQ(
+    hidden_descriptor.set_for_ND_tensor_.get_dimensions_array_value(0),
+    4);
+
+  EXPECT_EQ(
+    hidden_descriptor.set_for_ND_tensor_.get_dimensions_array_value(1),
+    100);
+
+  EXPECT_EQ(
+    hidden_descriptor.set_for_ND_tensor_.get_dimensions_array_value(2),
+    100);
+
+  EXPECT_EQ(
+    hidden_descriptor.set_for_ND_tensor_.get_strides_array_value(0),
+    10000);
+
+  EXPECT_EQ(
+    hidden_descriptor.set_for_ND_tensor_.get_strides_array_value(1),
+    100);
+
+  EXPECT_EQ(
+    hidden_descriptor.set_for_ND_tensor_.get_strides_array_value(2),
+    1);
+}
+
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+TEST(HiddenDescriptor3DimTests, ConstructsWithParametersForLSTMUnidirectional)
+{
+  DefaultParameters parameters {};
+  parameters.cell_mode_ = CUDNN_LSTM;
+  parameters.input_size_ = 784;
+  parameters.hidden_size_ = 100;
+  parameters.projection_size_ = 10;
+  parameters.maximum_sequence_length_ = 28;
+  parameters.batch_size_ = 100;
+
+
+  HiddenDescriptor<3> hidden_descriptor {parameters};
+
+  EXPECT_EQ(
+    hidden_descriptor.set_for_ND_tensor_.get_dimensions_array_value(0),
+    2);
+
+  EXPECT_EQ(
+    hidden_descriptor.set_for_ND_tensor_.get_dimensions_array_value(1),
+    100);
+
+  EXPECT_EQ(
+    hidden_descriptor.set_for_ND_tensor_.get_dimensions_array_value(2),
+    10);
+
+  EXPECT_EQ(
+    hidden_descriptor.set_for_ND_tensor_.get_strides_array_value(0),
+    1000);
+
+  EXPECT_EQ(
+    hidden_descriptor.set_for_ND_tensor_.get_strides_array_value(1),
+    10);
+
+  EXPECT_EQ(
+    hidden_descriptor.set_for_ND_tensor_.get_strides_array_value(2),
+    1);
 }
 
 } // namespace ManageDescriptor

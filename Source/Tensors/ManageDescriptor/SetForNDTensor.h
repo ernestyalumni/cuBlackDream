@@ -78,6 +78,7 @@ class SetForNDTensor
 
     friend class HiddenDescriptor;
     friend class SetFor3DTensor;
+    friend class SetFor3DCellTensor;
 
     inline int get_dimensions_array_value(const std::size_t i) const
     {
@@ -132,7 +133,6 @@ class SetForNDTensor
       }
     }
 
-
   private:
 
     int dimensions_array_[N];
@@ -148,6 +148,29 @@ class SetFor3DTensor : public SetForNDTensor<3>
     SetFor3DTensor(const RecurrentNeuralNetwork::Parameters& parameters);
 
     void set_for_hidden_layers(
+      const RecurrentNeuralNetwork::Parameters& parameters);
+};
+
+class SetFor3DCellTensor : public SetForNDTensor<3>
+{
+  public:
+
+    SetFor3DCellTensor();
+
+    SetFor3DCellTensor(const RecurrentNeuralNetwork::Parameters& parameters);
+
+    //--------------------------------------------------------------------------
+    /// https://docs.nvidia.com/deeplearning/cudnn/api/index.html#cudnnRNNForward
+    /// cDesc Input. For LSTM networks only.
+    /// First dimension of tensor depends on dirMode argument passed to
+    /// cudnnSetRNNDescriptor_v8() call.
+    /// If dirMode is CUDNN_UNIDIRECTIONAL, 1st. dim. should match L, numLayers.
+    /// If dirMode is CUDNN_BIDIRECTIONAL, 1st. dim. should match 2*L.
+    /// 2nd. tensor dim. must match batchSize in xDesc, N.
+    /// 3rd. dim. must match hiddenSize argument, H, passed to
+    /// cudnnSetRNNDescriptor_v8() call.
+    //--------------------------------------------------------------------------
+    void set_cell_layers_dimensions_for_forward(
       const RecurrentNeuralNetwork::Parameters& parameters);
 };
 

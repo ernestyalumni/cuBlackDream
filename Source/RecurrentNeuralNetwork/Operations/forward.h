@@ -181,11 +181,11 @@ Utilities::ErrorHandling::HandleUnsuccessfulCuDNNCall forward_no_lstm(
   RecurrentNeuralNetwork::ManageDescriptor::Descriptor& rnn_descriptor,
   RecurrentNeuralNetwork::SequenceLengthArray& sequence_length_array,
   RecurrentNeuralNetwork::ManageDescriptor::InputDescriptor& x_descriptor,
-  RecurrentNeuralNetwork::Modules::Input<T>& x,
+  const RecurrentNeuralNetwork::Modules::Input<T>& x,
   RecurrentNeuralNetwork::ManageDescriptor::OutputDescriptor& y_descriptor,
   RecurrentNeuralNetwork::Modules::Output<T>& y,
   RecurrentNeuralNetwork::ManageDescriptor::HiddenDescriptor<N>& h_descriptor,
-  RecurrentNeuralNetwork::Modules::Hidden<T>& hx,
+  const RecurrentNeuralNetwork::Modules::Hidden<T>& hx,
   RecurrentNeuralNetwork::Modules::Hidden<T>& hy,
   RecurrentNeuralNetwork::WeightSpace& weight_space,
   RecurrentNeuralNetwork::WorkAndReserveSpaces& work_and_reserve_spaces)
@@ -218,6 +218,36 @@ Utilities::ErrorHandling::HandleUnsuccessfulCuDNNCall forward_no_lstm(
       ));
 
   return handle_forward;
+}
+
+template <typename T, std::size_t N>
+Utilities::ErrorHandling::HandleUnsuccessfulCuDNNCall forward_no_lstm(
+  RecurrentNeuralNetwork::ManageDescriptor::LibraryHandleDropoutRNN&
+    library_handle_dropout_rnn,
+  RecurrentNeuralNetwork::SequenceLengthArray& sequence_length_array,
+  RecurrentNeuralNetwork::ManageDescriptor::InputDescriptor& x_descriptor,
+  const RecurrentNeuralNetwork::Modules::Input<T>& x,
+  RecurrentNeuralNetwork::ManageDescriptor::OutputDescriptor& y_descriptor,
+  RecurrentNeuralNetwork::Modules::Output<T>& y,
+  RecurrentNeuralNetwork::ManageDescriptor::HiddenDescriptor<N>& h_descriptor,
+  const RecurrentNeuralNetwork::Modules::Hidden<T>& hx,
+  RecurrentNeuralNetwork::Modules::Hidden<T>& hy,
+  RecurrentNeuralNetwork::WeightSpace& weight_space,
+  RecurrentNeuralNetwork::WorkAndReserveSpaces& work_and_reserve_spaces)
+{
+  return forward_no_lstm<T, N>(
+    library_handle_dropout_rnn.handle_,
+    library_handle_dropout_rnn.descriptor_,
+    sequence_length_array,
+    x_descriptor,
+    x,
+    y_descriptor,
+    y,
+    h_descriptor,
+    hx,
+    hy,
+    weight_space,
+    work_and_reserve_spaces);
 }
 
 } // namespace Operations

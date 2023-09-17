@@ -54,27 +54,69 @@ TEST(DefaultParametersTests, GetBidirectionalScaleGetsScale)
 //------------------------------------------------------------------------------
 TEST(DefaultParametersTests, GetInputTensorSizeGetsSize)
 {
-  DefaultParameters parameters {};
+  {
+    DefaultParameters parameters {};
 
-  EXPECT_EQ(parameters.get_input_tensor_size(), 655360);
+    EXPECT_EQ(parameters.get_input_tensor_size(), 655360);
+  }
+  {
+    DefaultParameters parameters {};
+    parameters.cell_mode_ = CUDNN_GRU;
+    // 512 cells * 6 parameters per cell.
+    parameters.input_size_ = 512 * 6;
+    parameters.hidden_size_ = 100;
+    parameters.projection_size_ = 100;
+    parameters.maximum_sequence_length_ = 4;
+    parameters.batch_size_ = 10;
+
+    EXPECT_EQ(parameters.get_input_tensor_size(), 512 * 6 * 4 * 10);    
+  }
 }
 
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
 TEST(DefaultParametersTests, GetOutputTensorSizeGetsSize)
 {
-  DefaultParameters parameters {};
+  {
+    DefaultParameters parameters {};
 
-  EXPECT_EQ(parameters.get_output_tensor_size(), 655360);
+    EXPECT_EQ(parameters.get_output_tensor_size(), 655360);
+  }
+  {
+    DefaultParameters parameters {};
+    parameters.cell_mode_ = CUDNN_GRU;
+    // 512 cells * 6 parameters per cell.
+    parameters.input_size_ = 512 * 6;
+    parameters.hidden_size_ = 100;
+    parameters.projection_size_ = 100;
+    parameters.maximum_sequence_length_ = 4;
+    parameters.batch_size_ = 10;
+
+    EXPECT_EQ(parameters.get_output_tensor_size(), 100 * 4 * 10);    
+  }
 }
 
 //------------------------------------------------------------------------------
 //------------------------------------------------------------------------------
 TEST(DefaultParametersTests, GetHiddenTensorSizeGetsSize)
 {
-  DefaultParameters parameters {};
+  {
+    DefaultParameters parameters {};
 
-  EXPECT_EQ(parameters.get_hidden_tensor_size(), 65536);
+    EXPECT_EQ(parameters.get_hidden_tensor_size(), 65536);
+  }
+  {
+    DefaultParameters parameters {};
+    parameters.cell_mode_ = CUDNN_GRU;
+    // 512 cells * 6 parameters per cell.
+    parameters.input_size_ = 512 * 6;
+    parameters.hidden_size_ = 100;
+    parameters.projection_size_ = 100;
+    parameters.maximum_sequence_length_ = 4;
+    parameters.batch_size_ = 10;
+
+    EXPECT_EQ(parameters.get_hidden_tensor_size(), 2 * 10 * 100);    
+  }
 }
 
 //------------------------------------------------------------------------------

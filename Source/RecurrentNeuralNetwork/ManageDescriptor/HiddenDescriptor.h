@@ -4,6 +4,7 @@
 #include "RecurrentNeuralNetwork/Parameters.h"
 #include "Tensors/ManageDescriptor/SetForNDTensor.h"
 #include "Tensors/ManageDescriptor/TensorDescriptor.h"
+#include "Utilities/ErrorHandling/HandleUnsuccessfulCuDNNCall.h"
 
 #include <cstddef>
 #include <cudnn.h>
@@ -14,7 +15,7 @@ namespace ManageDescriptor
 {
 
 //------------------------------------------------------------------------------
-/// N - dimension of the tensor.
+/// N - rank of the tensor.
 //------------------------------------------------------------------------------
 template <std::size_t N>
 //------------------------------------------------------------------------------
@@ -47,7 +48,7 @@ struct HiddenDescriptor
   /// projection is enabled. Specifically,
   /// * if RNN mode is CUDNN_LSTM and LSTM projection enabled, third dimension
   /// must match projSize argument passed to cudnnSetRNNProjectionLayers() call.
-  /// * Otherwise, third diemsnion must match hiddenSize argument passed to
+  /// * Otherwise, third dimension must match hiddenSize argument passed to
   /// cudnnSetRNNDescriptor_v8() call used to initialize rnnDesc.
   //----------------------------------------------------------------------------
   HiddenDescriptor(const RecurrentNeuralNetwork::Parameters& parameters):
@@ -55,6 +56,7 @@ struct HiddenDescriptor
     set_for_ND_tensor_{}
   {
     set_hidden_layers_dimensions_for_forward(parameters);
+    set_strides_by_dimensions();
   }  
 
   ~HiddenDescriptor() = default;
@@ -89,7 +91,7 @@ struct HiddenDescriptor
     {
       set_for_ND_tensor_.set_dimensions_array_value(
         2,
-        parameters.hidden_size_);      
+        parameters.hidden_size_);
     }
   }
 
