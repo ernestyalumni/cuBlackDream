@@ -39,14 +39,7 @@ struct Parameters
     return maximum_sequence_length_ * batch_size_ * input_size_;
   }
 
-  inline int get_output_tensor_size() const
-  {
-    return
-      maximum_sequence_length_ *
-      batch_size_ *
-      hidden_size_ *
-      get_bidirectional_scale();
-  }
+  int get_output_tensor_size() const;
 
   //------------------------------------------------------------------------
   /// \brief This gets the total size of the hidden tensor that acts on a
@@ -69,6 +62,12 @@ struct Parameters
       2 * get_output_tensor_size() +
       8 * get_hidden_tensor_size()) * sizeof(T);
   }
+
+  //----------------------------------------------------------------------------
+  /// \return False if we find that LSTM projection is enabled when cell mode
+  /// isn't LSTM.
+  //----------------------------------------------------------------------------
+  bool check_for_valid_parameters();
 
   //----------------------------------------------------------------------------
   /// 3.1.2.22. cudnnRNNAlgo_t

@@ -11,6 +11,7 @@ SET(TEST_CU_SOURCES
   FrontEnd/Tensors/CreateTensor_tests.cu
   FrontEnd/Tensors/Tensors_tests.cu
   Networks/RecurrentNeuralNetworks/LSTM/LSTM_tests.cu
+  RecurrentNeuralNetwork/ManageDescriptor/CellDescriptor_tests.cu
   RecurrentNeuralNetwork/ManageDescriptor/DataDescriptor_tests.cu
   RecurrentNeuralNetwork/ManageDescriptor/DropoutDescriptor_tests.cu
   RecurrentNeuralNetwork/ManageDescriptor/HiddenDescriptor_tests.cu

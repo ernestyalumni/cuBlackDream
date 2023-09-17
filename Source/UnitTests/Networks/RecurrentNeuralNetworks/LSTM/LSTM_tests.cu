@@ -1,3 +1,5 @@
+#include "RecurrentNeuralNetwork/ManageDescriptor/CellDescriptor.h"
+#include "RecurrentNeuralNetwork/ManageDescriptor/HiddenDescriptor.h"
 #include "RecurrentNeuralNetwork/ManageDescriptor/InputDescriptor.h"
 #include "RecurrentNeuralNetwork/ManageDescriptor/LibraryHandleDropoutRNN.h"
 #include "RecurrentNeuralNetwork/ManageDescriptor/OutputDescriptor.h"
@@ -15,6 +17,7 @@
 
 using RecurrentNeuralNetwork::DefaultParameters;
 using RecurrentNeuralNetwork::HostSequenceLengthArray;
+using RecurrentNeuralNetwork::ManageDescriptor::CellDescriptor;
 using RecurrentNeuralNetwork::ManageDescriptor::HiddenDescriptor;
 using RecurrentNeuralNetwork::ManageDescriptor::HiddenDescriptor3Dim;
 using RecurrentNeuralNetwork::ManageDescriptor::InputDescriptor;
@@ -65,15 +68,20 @@ TEST(LSTMTests, SetupStepsExplicitlyForDigitRecognizer)
   // vectorSize must match inputSize. Use of parameters ensures this.
   InputDescriptor x_descriptor {parameters, sequence_length_array};
 
+  OutputDescriptor y_descriptor {parameters, sequence_length_array};
 
   // Default sets dropout probabilty to 0 if not specified in construction.
   // Uses parameters to set RNN descriptor, according to
   // cudnnSetRNNDescriptor_v8(..) signature.
   LibraryHandleDropoutRNN descriptors {parameters};
 
-/*
+  HiddenDescriptor<3> h_descriptor {parameters};
+  CellDescriptor<3> cell_descriptor {parameters};
+
   WeightSpace weight_space {descriptors};
-*/
+  WorkAndReserveSpaces spaces {descriptors, x_descriptor};
+
+
 
 }
 
