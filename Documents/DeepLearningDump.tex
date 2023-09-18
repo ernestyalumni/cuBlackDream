@@ -218,7 +218,38 @@ From this we can clearly see that $\forall t \in \lbrace 0, 1, \dots T-1$ where 
 
 EY: 20230903 It is not clear however, what form does $c_{-1}$ takes that'd be necessary for the computation of $c_0$ for $t=0$. While one could maybe make some guess or ansatz about what $h_{-1}$ to use initially and compute $i_0, f_0, o_0$ to use for some initialized values for the operators $W$, $R$, and biases $b$'s, does one have to make a guess or ansatz about $c_{-1}$ as well?
 
+\subsection{Interpreting NVIDIA \texttt{cudnn} Legacy API}
 
+Let \\
+$N = $ number of samples in a batch \\
+$T = $ length of sequence \\
+$D = $ number of features; size of a (single) input vector \\
+
+Implied strides would be $(TD, D, 1)$. \\
+
+$L=$ number of layers, $b= \begin{cases} 1 & \text{ if unidirectional } \\
+	2 & \text{ if bidirectional } \end{cases}$ \\
+
+$(bL, N, \begin{cases} P  & \text{ if LSTM of } \\ H & \text{ hidden size } \end{cases})$  \\
+
+Consider strides: $( \lbrace NP, NH \rbrace, \lbrace P, H \rbrace, 1)$ \\
+
+Cell dimensions or cells of rank $R$ \\
+$(bL, N, H)$ \\
+
+$x, hx, cx, W \mapsto \text{ forward } \mapsto y, hy, cy$ \\
+
+$x,hx \mapsto \text{ backward on $W$ } \mapsto y, \partial W \equiv dW$ \\
+
+if $o = [y, hy, cy] = F(x,hx, cx) = F(z)$, then \\
+
+backwardData $\mapsto \left( \frac{ \partial o_i}{ \partial z_j } \right)^T \delta_{\text{out}}$, where $\delta_{\text{out}} \equiv \text{grad} l$ and $|\text{grad}l | = m\times 1$ \\
+
+$\delta_{\text{out}} \equiv dy, dhy, dcy$ \\
+
+gradient results $\left( \frac{ \partial o_i }{ \partial z_j} \right)^T \equiv dx, dhx, dcx$ \\
+
+$y,dy, hx, dhy, cx, dcy, w \mapsto \text{ backward on Data } \mapsto dx, dhx, dcx$
 
 
 \part{Transformer Networks}
