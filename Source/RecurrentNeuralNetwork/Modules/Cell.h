@@ -1,5 +1,5 @@
-#ifndef RECURRENT_NEURAL_NETWORK_MODULES_OUTPUT_H
-#define RECURRENT_NEURAL_NETWORK_MODULES_OUTPUT_H
+#ifndef RECURRENT_NEURAL_NETWORK_MODULES_CELL_H
+#define RECURRENT_NEURAL_NETWORK_MODULES_CELL_H
 
 #include "RecurrentNeuralNetwork/Parameters.h"
 #include "Utilities/ErrorHandling/HandleUnsuccessfulCudaCall.h"
@@ -13,21 +13,21 @@ namespace Modules
 {
 
 template <typename T>
-class Output
+class Cell
 {
   public:
 
     using HandleUnsuccessfulCUDACall =
       Utilities::ErrorHandling::HandleUnsuccessfulCUDACall;
 
-    Output(const RecurrentNeuralNetwork::Parameters& parameters):
-      y_{nullptr}
+    Cell(const RecurrentNeuralNetwork::Parameters& parameters):
+      c_{nullptr}
     {
       HandleUnsuccessfulCUDACall handle_malloc {
-        "Failed to allocate device memory for output"};
+        "Failed to allocate device memory for cell"};
 
       handle_malloc(
-        cudaMalloc(&y_, parameters.get_output_tensor_size() * sizeof(T)));
+        cudaMalloc(&c_, parameters.get_cell_tensor_size() * sizeof(T)));
 
       if (!handle_malloc.is_cuda_success())
       {
@@ -35,18 +35,18 @@ class Output
       }
     }
 
-    ~Output()
+    ~Cell()
     {
       HandleUnsuccessfulCUDACall handle_free_space {
-        "Failed to free device memory for output"};
+        "Failed to free device memory for cell"};
 
-      handle_free_space(cudaFree(y_));
+      handle_free_space(cudaFree(c_));
     }
 
-    void* y_;
+    void* c_;
 };
 
 } // namespace Modules
 } // namespace RecurrentNeuralNetwork
 
-#endif // RECURRENT_NEURAL_NETWORK_MODULES_OUTPUT_H
+#endif // RECURRENT_NEURAL_NETWORK_MODULES_CELL_H

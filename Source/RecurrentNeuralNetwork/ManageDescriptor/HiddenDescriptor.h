@@ -61,6 +61,7 @@ struct HiddenDescriptor
 
   ~HiddenDescriptor() = default;
 
+  // (bL, N, {P, H})
   void set_hidden_layers_dimensions_for_forward(
     const RecurrentNeuralNetwork::Parameters& parameters)
   {
@@ -98,18 +99,7 @@ struct HiddenDescriptor
   // TODO: Make this more robust, e.g. what if a dimension element was set to 0?
   void set_strides_by_dimensions()
   {
-    set_for_ND_tensor_.set_strides_array_value(N - 1, 1);
-
-    int product_of_dimensions {1};
-
-    for (std::size_t i {N - 1}; i > 0; --i)
-    {
-      product_of_dimensions *=
-        set_for_ND_tensor_.get_dimensions_array_value(i);
-      set_for_ND_tensor_.set_strides_array_value(
-        i - 1,
-        product_of_dimensions);
-    }
+    set_for_ND_tensor_.set_strides_from_dimensions_as_descending();
   }
 
   HandleUnsuccessfulCuDNNCall set_descriptor(

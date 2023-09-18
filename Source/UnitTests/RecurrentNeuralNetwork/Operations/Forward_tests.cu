@@ -1,6 +1,9 @@
+#include "RecurrentNeuralNetwork/ManageDescriptor/CellDescriptor.h"
+#include "RecurrentNeuralNetwork/ManageDescriptor/HiddenDescriptor.h"
 #include "RecurrentNeuralNetwork/ManageDescriptor/InputDescriptor.h"
 #include "RecurrentNeuralNetwork/ManageDescriptor/LibraryHandleDropoutRNN.h"
 #include "RecurrentNeuralNetwork/ManageDescriptor/OutputDescriptor.h"
+#include "RecurrentNeuralNetwork/Modules/Cell.h"
 #include "RecurrentNeuralNetwork/Modules/Hidden.h"
 #include "RecurrentNeuralNetwork/Modules/Input.h"
 #include "RecurrentNeuralNetwork/Modules/Output.h"
@@ -15,11 +18,14 @@
 
 using RecurrentNeuralNetwork::DefaultParameters;
 using RecurrentNeuralNetwork::HostSequenceLengthArray;
-using RecurrentNeuralNetwork::ManageDescriptor::HiddenDescriptor;
+using RecurrentNeuralNetwork::LSTMDefaultParameters;
+using RecurrentNeuralNetwork::ManageDescriptor::CellDescriptor;
 using RecurrentNeuralNetwork::ManageDescriptor::HiddenDescriptor3Dim;
+using RecurrentNeuralNetwork::ManageDescriptor::HiddenDescriptor;
 using RecurrentNeuralNetwork::ManageDescriptor::InputDescriptor;
 using RecurrentNeuralNetwork::ManageDescriptor::LibraryHandleDropoutRNN;
 using RecurrentNeuralNetwork::ManageDescriptor::OutputDescriptor;
+using RecurrentNeuralNetwork::Modules::Cell;
 using RecurrentNeuralNetwork::Modules::Hidden;
 using RecurrentNeuralNetwork::Modules::Input;
 using RecurrentNeuralNetwork::Modules::Output;
@@ -90,16 +96,15 @@ TEST(ForwardTests, Forwards)
 TEST(ForwardTests, ForwardsOnSequenceMajorPackedLayout)
 {
   DefaultParameters parameters {};
+  parameters.layout_ = CUDNN_RNN_DATA_LAYOUT_SEQ_MAJOR_PACKED;
 
   SequenceLengthArray sequence_length_array {parameters};
   HostSequenceLengthArray host_array {parameters};
   host_array.set_all_to_maximum_sequence_length();
   sequence_length_array.copy_host_input_to_device(host_array);
 
-  const cudnnRNNDataLayout_t layout {CUDNN_RNN_DATA_LAYOUT_SEQ_MAJOR_PACKED};
-
-  InputDescriptor x_descriptor {parameters, sequence_length_array, layout};
-  OutputDescriptor y_descriptor {parameters, sequence_length_array, layout};
+  InputDescriptor x_descriptor {parameters, sequence_length_array};
+  OutputDescriptor y_descriptor {parameters, sequence_length_array};
 
   LibraryHandleDropoutRNN descriptors {parameters};
   HiddenDescriptor<3> h_descriptor {parameters};
@@ -148,6 +153,8 @@ TEST(ForwardTests, ForwardsOnGRUCellType)
   parameters.projection_size_ = 100;
   parameters.maximum_sequence_length_ = 4;
   parameters.batch_size_ = 10;
+  parameters.auxiliary_flags_ = CUDNN_RNN_PADDED_IO_ENABLED;
+  parameters.layout_ = CUDNN_RNN_DATA_LAYOUT_BATCH_MAJOR_UNPACKED;
 
   EXPECT_TRUE(parameters.check_for_valid_parameters());
 
@@ -158,10 +165,8 @@ TEST(ForwardTests, ForwardsOnGRUCellType)
     sequence_length_array.copy_host_input_to_device(host_array);
   }
 
-  const cudnnRNNDataLayout_t layout {CUDNN_RNN_DATA_LAYOUT_SEQ_MAJOR_UNPACKED};
-
-  InputDescriptor x_descriptor {parameters, sequence_length_array, layout};
-  OutputDescriptor y_descriptor {parameters, sequence_length_array, layout};
+  InputDescriptor x_descriptor {parameters, sequence_length_array};
+  OutputDescriptor y_descriptor {parameters, sequence_length_array};
 
   LibraryHandleDropoutRNN descriptors {parameters};
   HiddenDescriptor<3> h_descriptor {parameters};
@@ -211,6 +216,7 @@ TEST(ForwardTests, ForwardsOnBatchMajorPackedDataLayout)
   parameters.maximum_sequence_length_ = 4;
   parameters.batch_size_ = 10;
   parameters.auxiliary_flags_ = CUDNN_RNN_PADDED_IO_ENABLED;
+  parameters.layout_ = CUDNN_RNN_DATA_LAYOUT_BATCH_MAJOR_UNPACKED;
 
   EXPECT_TRUE(parameters.check_for_valid_parameters());
 
@@ -219,10 +225,8 @@ TEST(ForwardTests, ForwardsOnBatchMajorPackedDataLayout)
   host_array.set_all_to_maximum_sequence_length();
   sequence_length_array.copy_host_input_to_device(host_array);
 
-  const cudnnRNNDataLayout_t layout {CUDNN_RNN_DATA_LAYOUT_BATCH_MAJOR_UNPACKED};
-
-  InputDescriptor x_descriptor {parameters, sequence_length_array, layout};
-  OutputDescriptor y_descriptor {parameters, sequence_length_array, layout};
+  InputDescriptor x_descriptor {parameters, sequence_length_array};
+  OutputDescriptor y_descriptor {parameters, sequence_length_array};
 
   LibraryHandleDropoutRNN descriptors {parameters};
   HiddenDescriptor<3> h_descriptor {parameters};
@@ -243,6 +247,123 @@ TEST(ForwardTests, ForwardsOnBatchMajorPackedDataLayout)
   const auto result = forward<float, 3>(
     descriptors,
     sequence_length_array,
+    x_descriptor,
+    x,
+    y_descriptor,
+    y,
+    h_descriptor,
+    hx,
+    hy,
+    c_descriptor,
+    cx,
+    cy,
+    weight_space,
+    spaces);
+
+  EXPECT_TRUE(result.is_success());
+}
+
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+TEST(ForwardTests, ForwardsOnLSTM)
+{
+  LSTMDefaultParameters parameters {
+    29,
+    50,
+    10,
+    1,
+    28,
+    100};
+
+  EXPECT_TRUE(parameters.check_for_valid_parameters());
+
+  SequenceLengthArray sequence_length_array {parameters};
+  {
+    HostSequenceLengthArray host_array {parameters};
+    host_array.set_all_to_maximum_sequence_length();
+    sequence_length_array.copy_host_input_to_device(host_array);
+  }
+
+  InputDescriptor x_descriptor {parameters, sequence_length_array};
+  OutputDescriptor y_descriptor {parameters, sequence_length_array};
+
+  LibraryHandleDropoutRNN descriptors {parameters};
+  HiddenDescriptor<3> h_descriptor {parameters};
+  CellDescriptor<3> c_descriptor {parameters};
+  h_descriptor.set_descriptor(parameters);
+  c_descriptor.set_descriptor(parameters);
+
+  WeightSpace weight_space {descriptors};
+  WorkAndReserveSpaces spaces {descriptors, x_descriptor};
+
+  Input<float> x {parameters};
+  Output<float> y {parameters};
+  Hidden<float> hx {parameters};
+  Hidden<float> hy {parameters};
+  Cell<float> cx {parameters};
+  Cell<float> cy {parameters};
+
+  const auto result = forward<float, 3>(
+    descriptors,
+    sequence_length_array,
+    x_descriptor,
+    x,
+    y_descriptor,
+    y,
+    h_descriptor,
+    hx,
+    hy,
+    c_descriptor,
+    cx,
+    cy,
+    weight_space,
+    spaces);
+
+  EXPECT_TRUE(result.is_success());
+}
+
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+TEST(ForwardTests, ForwardsOnLSTMAndNoSequenceLengths)
+{
+  LSTMDefaultParameters parameters {
+    29,
+    50,
+    10,
+    1,
+    28,
+    100};
+
+  EXPECT_TRUE(parameters.check_for_valid_parameters());
+
+  SequenceLengthArray sequence_length_array {parameters};
+  {
+    HostSequenceLengthArray host_array {parameters};
+    host_array.set_all_to_maximum_sequence_length();
+    sequence_length_array.copy_host_input_to_device(host_array);
+  }
+
+  InputDescriptor x_descriptor {parameters, sequence_length_array};
+  OutputDescriptor y_descriptor {parameters, sequence_length_array};
+
+  LibraryHandleDropoutRNN descriptors {parameters};
+  HiddenDescriptor<3> h_descriptor {parameters};
+  CellDescriptor<3> c_descriptor {parameters};
+  h_descriptor.set_descriptor(parameters);
+  c_descriptor.set_descriptor(parameters);
+
+  WeightSpace weight_space {descriptors};
+  WorkAndReserveSpaces spaces {descriptors, x_descriptor};
+
+  Input<float> x {parameters};
+  Output<float> y {parameters};
+  Hidden<float> hx {parameters};
+  Hidden<float> hy {parameters};
+  Cell<float> cx {parameters};
+  Cell<float> cy {parameters};
+
+  const auto result = forward<float, 3>(
+    descriptors,
     x_descriptor,
     x,
     y_descriptor,

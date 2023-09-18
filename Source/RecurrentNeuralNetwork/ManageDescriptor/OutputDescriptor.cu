@@ -4,7 +4,6 @@
 #include "RecurrentNeuralNetwork/Parameters.h"
 #include "RecurrentNeuralNetwork/SequenceLengthArray.h"
 
-#include <cudnn.h>
 #include <stdexcept>
 
 namespace RecurrentNeuralNetwork
@@ -14,12 +13,10 @@ namespace ManageDescriptor
 
 OutputDescriptor::OutputDescriptor(
   RecurrentNeuralNetwork::Parameters& parameters,
-  RecurrentNeuralNetwork::SequenceLengthArray& sequence_length_array,
-  const cudnnRNNDataLayout_t layout
-  ):
+  RecurrentNeuralNetwork::SequenceLengthArray& sequence_length_array):
   y_data_descriptor_{}
 {
-  SetDataDescriptor set_data_descriptor {layout};
+  SetDataDescriptor set_data_descriptor {parameters.layout_};
 
   const auto handle_set_data_descriptor =
     set_data_descriptor.set_descriptor_for_output(

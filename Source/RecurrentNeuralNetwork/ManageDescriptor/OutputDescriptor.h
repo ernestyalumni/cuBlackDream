@@ -16,9 +16,7 @@ struct OutputDescriptor
 {
   OutputDescriptor(
     RecurrentNeuralNetwork::Parameters& parameters,
-    RecurrentNeuralNetwork::SequenceLengthArray& sequence_length_array,
-    const cudnnRNNDataLayout_t layout =
-      CUDNN_RNN_DATA_LAYOUT_SEQ_MAJOR_UNPACKED);
+    RecurrentNeuralNetwork::SequenceLengthArray& sequence_length_array);
 
   ~OutputDescriptor() = default;
 

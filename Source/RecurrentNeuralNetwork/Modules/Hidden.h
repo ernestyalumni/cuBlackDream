@@ -49,4 +49,4 @@ class Hidden
 } // namespace Modules
 } // namespace RecurrentNeuralNetwork
 
-#endif // RECURRENT_NEURAL_NETWORK_MODULES_INPUT_H
+#endif // RECURRENT_NEURAL_NETWORK_MODULES_HIDDEN_H

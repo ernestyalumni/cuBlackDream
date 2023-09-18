@@ -25,6 +25,7 @@ Parameters::Parameters(
   const size_t number_of_layers,
   const size_t maximum_sequence_length,
   const size_t batch_size,
+  const cudnnRNNDataLayout_t layout,
   const uint32_t auxiliary_flags
   ):
   algo_{algorithm},
@@ -41,7 +42,8 @@ Parameters::Parameters(
   number_of_layers_{static_cast<int32_t>(number_of_layers)},
   maximum_sequence_length_{static_cast<int>(maximum_sequence_length)},
   batch_size_{static_cast<int>(batch_size)},
-  auxiliary_flags_{auxiliary_flags}
+  auxiliary_flags_{auxiliary_flags},
+  layout_{layout}
 {
   check_for_valid_parameters();
 }
@@ -61,6 +63,26 @@ int Parameters::get_output_tensor_size() const
         get_bidirectional_scale()) :
       (
         maximum_sequence_length_ *
+        batch_size_ *
+        hidden_size_ *
+        get_bidirectional_scale());
+}
+
+int Parameters::get_hidden_tensor_size() const
+{
+  return ((cell_mode_ == CUDNN_LSTM) &&
+    // Projection is enabled - projSize shouldn't be larger than hiddenSize;
+    // it's legal to set projSize = hiddenSize, however, in this case, recurrent
+    // projection feature is disabled.
+    // https://docs.nvidia.com/deeplearning/cudnn/api/index.html#cudnnSetRNNDescriptor_v8
+    (projection_size_ < hidden_size_)) ?
+      (
+        number_of_layers_ *
+        batch_size_ *
+        projection_size_ *
+        get_bidirectional_scale()) :
+      (
+        number_of_layers_ *
         batch_size_ *
         hidden_size_ *
         get_bidirectional_scale());
@@ -98,6 +120,27 @@ bool Parameters::check_for_valid_parameters()
       "[ERROR] Inconsistent parameter: projSize is larger than hiddenSize!");
   }
 
+  // https://docs.nvidia.com/deeplearning/cudnn/api/index.html#cudnnSetRNNDataDescriptor
+  // It says so that when padded I/O is enabled,
+  // layouts CUDNN_RNN_DATA_LAYOUT_SEQ_MAJOR_UNPACKED and
+  // CUDNN_RNN_DATA_LAYOUT_BATCH_MAJOR_UNPACKED are permitted.
+
+  if (((layout_ == CUDNN_RNN_DATA_LAYOUT_SEQ_MAJOR_UNPACKED) ||
+    (layout_ == CUDNN_RNN_DATA_LAYOUT_BATCH_MAJOR_UNPACKED)) &&
+    (auxiliary_flags_ != CUDNN_RNN_PADDED_IO_ENABLED))
+  {
+    auxiliary_flags_ = CUDNN_RNN_PADDED_IO_ENABLED;
+    return false;
+  }
+
+  // TODO: It may be innocuous to have Padded IO enabled and sequence major
+  // packed.
+  if ((layout_ == CUDNN_RNN_DATA_LAYOUT_SEQ_MAJOR_PACKED) &&
+    (auxiliary_flags_ == CUDNN_RNN_PADDED_IO_ENABLED))
+  {
+    auxiliary_flags_ = CUDNN_RNN_PADDED_IO_DISABLED;
+  }
+
   // It was found empirical when calling cudnnSetRNNDescriptor such that if
   // hidden_size_ > projection_size_, but cell mode was not LSTM, then we error
   // out. But we return false instead of throwing because this was not
@@ -127,7 +170,36 @@ DefaultParameters::DefaultParameters():
     2,
     20,
     64,
-    CUDNN_RNN_PADDED_IO_DISABLED}
+    CUDNN_RNN_DATA_LAYOUT_SEQ_MAJOR_PACKED,
+    CUDNN_RNN_PADDED_IO_DISABLED
+    }
+{}
+
+LSTMDefaultParameters::LSTMDefaultParameters(
+  const size_t input_size,
+  const size_t hidden_size,
+  const size_t projection_size,
+  const size_t number_of_layers,
+  const size_t maximum_sequence_length,
+  const size_t batch_size):
+  Parameters{
+    CUDNN_RNN_ALGO_STANDARD,
+    CUDNN_LSTM,
+    CUDNN_RNN_DOUBLE_BIAS,
+    CUDNN_BIDIRECTIONAL,
+    CUDNN_LINEAR_INPUT,
+    CUDNN_DATA_FLOAT,
+    CUDNN_DATA_FLOAT,
+    CUDNN_DEFAULT_MATH,
+    input_size,
+    hidden_size,
+    projection_size,
+    number_of_layers,
+    maximum_sequence_length,
+    batch_size,
+    CUDNN_RNN_DATA_LAYOUT_BATCH_MAJOR_UNPACKED,
+    CUDNN_RNN_PADDED_IO_ENABLED
+    }
 {}
 
 } // namespace RecurrentNeuralNetwork

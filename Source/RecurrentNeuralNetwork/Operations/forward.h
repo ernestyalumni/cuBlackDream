@@ -2,11 +2,13 @@
 #define RECURRENT_NEURAL_NETWORK_OPERATIONS_FORWARD_H
 
 #include "DeepNeuralNetwork/CuDNNLibraryHandle.h"
+#include "RecurrentNeuralNetwork/ManageDescriptor/CellDescriptor.h"
 #include "RecurrentNeuralNetwork/ManageDescriptor/Descriptor.h"
 #include "RecurrentNeuralNetwork/ManageDescriptor/HiddenDescriptor.h"
 #include "RecurrentNeuralNetwork/ManageDescriptor/InputDescriptor.h"
 #include "RecurrentNeuralNetwork/ManageDescriptor/LibraryHandleDropoutRNN.h"
 #include "RecurrentNeuralNetwork/ManageDescriptor/OutputDescriptor.h"
+#include "RecurrentNeuralNetwork/Modules/Cell.h"
 #include "RecurrentNeuralNetwork/Modules/Hidden.h"
 #include "RecurrentNeuralNetwork/Modules/Input.h"
 #include "RecurrentNeuralNetwork/Modules/Output.h"
@@ -77,11 +79,14 @@ namespace Operations
 /// \param [out] y
 /// \param hx - Input. Pointer to GPU buffer with RNN initial hidden state.
 /// Data dimensions described by hDesc tensor descriptor.
+/// If nullptr passed, initial hidden state of network will be initialized to 0.
 /// \param [out] hy - Pointer to GPU buffer where final RNN hidden state
 /// should be stored. Data dimensions are described by hDesc tensor descriptor.
 /// \param [out] cy - For LSTM networks only. Pointer to GPU buffer where final
 /// LSTM state data should be stored. Data dimensions described by cDesc tensor
 /// descriptor. If NULL pointer passed, final LSTM cell state won't be saved.
+/// \param [in,out] reserveSpace - Address of reserve-space buffer in GPU
+/// memory.
 //------------------------------------------------------------------------------
 
 //------------------------------------------------------------------------------
@@ -95,14 +100,18 @@ Utilities::ErrorHandling::HandleUnsuccessfulCuDNNCall forward(
   RecurrentNeuralNetwork::ManageDescriptor::InputDescriptor& x_descriptor,
   const RecurrentNeuralNetwork::Modules::Input<T>& x,
   RecurrentNeuralNetwork::ManageDescriptor::OutputDescriptor& y_descriptor,
+  // Output
   RecurrentNeuralNetwork::Modules::Output<T>& y,
   RecurrentNeuralNetwork::ManageDescriptor::HiddenDescriptor<N>& h_descriptor,
   const RecurrentNeuralNetwork::Modules::Hidden<T>& hx,
+  // Output
   RecurrentNeuralNetwork::Modules::Hidden<T>& hy,
   RecurrentNeuralNetwork::ManageDescriptor::HiddenDescriptor<N>& c_descriptor,
   const RecurrentNeuralNetwork::Modules::Hidden<T>& cx,
+  // LSTM only, Output
   RecurrentNeuralNetwork::Modules::Hidden<T>& cy,
   RecurrentNeuralNetwork::WeightSpace& weight_space,
+  // Input/Output.
   RecurrentNeuralNetwork::WorkAndReserveSpaces& work_and_reserve_spaces)
 {
   Utilities::ErrorHandling::HandleUnsuccessfulCuDNNCall handle_forward {
@@ -169,6 +178,113 @@ Utilities::ErrorHandling::HandleUnsuccessfulCuDNNCall forward(
     cy,
     weight_space,
     work_and_reserve_spaces);
+}
+
+template <typename T, std::size_t N>
+Utilities::ErrorHandling::HandleUnsuccessfulCuDNNCall forward(
+  RecurrentNeuralNetwork::ManageDescriptor::LibraryHandleDropoutRNN&
+    library_handle_dropout_rnn,
+  RecurrentNeuralNetwork::SequenceLengthArray& sequence_length_array,
+  RecurrentNeuralNetwork::ManageDescriptor::InputDescriptor& x_descriptor,
+  const RecurrentNeuralNetwork::Modules::Input<T>& x,
+  RecurrentNeuralNetwork::ManageDescriptor::OutputDescriptor& y_descriptor,
+  // Output
+  RecurrentNeuralNetwork::Modules::Output<T>& y,
+  RecurrentNeuralNetwork::ManageDescriptor::HiddenDescriptor<N>& h_descriptor,
+  RecurrentNeuralNetwork::Modules::Hidden<T>& hx,
+  // Output
+  RecurrentNeuralNetwork::Modules::Hidden<T>& hy,
+  RecurrentNeuralNetwork::ManageDescriptor::CellDescriptor<N>& c_descriptor,
+  RecurrentNeuralNetwork::Modules::Cell<T>& cx,
+  // LSTM only, Output
+  RecurrentNeuralNetwork::Modules::Cell<T>& cy,
+  RecurrentNeuralNetwork::WeightSpace& weight_space,
+  // Input/Output.
+  RecurrentNeuralNetwork::WorkAndReserveSpaces& work_and_reserve_spaces)
+{
+  Utilities::ErrorHandling::HandleUnsuccessfulCuDNNCall handle_forward {
+    "Failed to run forward operation"};
+
+  handle_forward(
+    cudnnRNNForward(
+      library_handle_dropout_rnn.handle_.handle_,
+      library_handle_dropout_rnn.descriptor_.descriptor_,
+      work_and_reserve_spaces.get_forward_mode(),
+      sequence_length_array.sequence_length_array_,
+      x_descriptor.x_data_descriptor_.descriptor_,
+      x.x_,
+      y_descriptor.y_data_descriptor_.descriptor_,
+      y.y_,
+      h_descriptor.descriptor_.descriptor_,
+      hx.h_,
+      hy.h_,
+      c_descriptor.descriptor_.descriptor_,
+      cx.c_,
+      cy.c_,
+      weight_space.get_weight_space_size(),
+      weight_space.weight_space_,
+      work_and_reserve_spaces.get_work_space_size(),
+      work_and_reserve_spaces.work_space_,
+      work_and_reserve_spaces.get_reserve_space_size(),
+      work_and_reserve_spaces.reserve_space_
+      ));
+
+  return handle_forward;
+}
+
+template <typename T, std::size_t N>
+Utilities::ErrorHandling::HandleUnsuccessfulCuDNNCall forward(
+  RecurrentNeuralNetwork::ManageDescriptor::LibraryHandleDropoutRNN&
+    library_handle_dropout_rnn,
+  RecurrentNeuralNetwork::ManageDescriptor::InputDescriptor& x_descriptor,
+  const RecurrentNeuralNetwork::Modules::Input<T>& x,
+  RecurrentNeuralNetwork::ManageDescriptor::OutputDescriptor& y_descriptor,
+  // Output
+  RecurrentNeuralNetwork::Modules::Output<T>& y,
+  RecurrentNeuralNetwork::ManageDescriptor::HiddenDescriptor<N>& h_descriptor,
+  const RecurrentNeuralNetwork::Modules::Hidden<T>& hx,
+  // Output
+  RecurrentNeuralNetwork::Modules::Hidden<T>& hy,
+  RecurrentNeuralNetwork::ManageDescriptor::CellDescriptor<N>& c_descriptor,
+  const RecurrentNeuralNetwork::Modules::Cell<T>& cx,
+  // LSTM only, Output
+  RecurrentNeuralNetwork::Modules::Cell<T>& cy,
+  const RecurrentNeuralNetwork::WeightSpace& weight_space,
+  // Input/Output.
+  RecurrentNeuralNetwork::WorkAndReserveSpaces& work_and_reserve_spaces)
+{
+  Utilities::ErrorHandling::HandleUnsuccessfulCuDNNCall handle_forward {
+    "Failed to run forward operation"};
+
+  handle_forward(
+    cudnnRNNForward(
+      library_handle_dropout_rnn.handle_.handle_,
+      library_handle_dropout_rnn.descriptor_.descriptor_,
+      work_and_reserve_spaces.get_forward_mode(),
+      //------------------------------------------------------------------------
+      /// https://docs.nvidia.com/deeplearning/cudnn/api/index.html#cudnnRNNForward
+      /// In cuDNN 8.9.1 and later versions, devSeqLengths should be null.
+      //------------------------------------------------------------------------
+      nullptr,
+      x_descriptor.x_data_descriptor_.descriptor_,
+      x.x_,
+      y_descriptor.y_data_descriptor_.descriptor_,
+      y.y_,
+      h_descriptor.descriptor_.descriptor_,
+      hx.h_,
+      hy.h_,
+      c_descriptor.descriptor_.descriptor_,
+      cx.c_,
+      cy.c_,
+      weight_space.get_weight_space_size(),
+      weight_space.weight_space_,
+      work_and_reserve_spaces.get_work_space_size(),
+      work_and_reserve_spaces.work_space_,
+      work_and_reserve_spaces.get_reserve_space_size(),
+      work_and_reserve_spaces.reserve_space_
+      ));
+
+  return handle_forward;
 }
 
 //------------------------------------------------------------------------------

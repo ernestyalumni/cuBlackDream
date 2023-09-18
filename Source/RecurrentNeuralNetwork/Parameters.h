@@ -26,6 +26,8 @@ struct Parameters
     const std::size_t number_of_layers,
     const std::size_t maximum_sequence_length,
     const std::size_t batch_size,
+    const cudnnRNNDataLayout_t layout =
+      CUDNN_RNN_DATA_LAYOUT_BATCH_MAJOR_UNPACKED,
     const uint32_t auxiliary_flags =
       static_cast<uint32_t>(CUDNN_RNN_PADDED_IO_DISABLED));
 
@@ -39,19 +41,28 @@ struct Parameters
     return maximum_sequence_length_ * batch_size_ * input_size_;
   }
 
+  // Consider size bH if LSTM projection disabled, bP otherwise.
   int get_output_tensor_size() const;
 
   //------------------------------------------------------------------------
   /// \brief This gets the total size of the hidden tensor that acts on a
   /// single time point, t.
+  /// https://docs.nvidia.com/deeplearning/cudnn/api/index.html#cudnnRNNForward
+  /// hx. Pointer to GPU buffer with RNN initial hidden state. Data
+  /// dimensions are described by hDesc tensor descriptor.
+  /// hy. Pointer to GPU buffer where final RNN hidden state should be
+  /// stored. Data dimensions described by hDesc tensor descriptor.
   //------------------------------------------------------------------------
-  inline int get_hidden_tensor_size() const
+  int get_hidden_tensor_size() const;
+
+  // LSTM networks only.
+  inline int get_cell_tensor_size() const
   {
     return
       number_of_layers_ *
+      get_bidirectional_scale() *
       batch_size_ *
-      hidden_size_ *
-      get_bidirectional_scale();
+      hidden_size_;
   }
 
   template <typename T>
@@ -181,7 +192,18 @@ struct Parameters
   //----------------------------------------------------------------------------
   int batch_size_;
 
+  //----------------------------------------------------------------------------
+  /// https://docs.nvidia.com/deeplearning/cudnn/api/index.html#cudnnSetRNNDescriptor_v8
+  /// Currently, this parameter is used to enable or disable padded input/output
+  /// (CUDNN_RNN_PADDED_IO_DISABLED, CUDNN_RNN_PADDED_IO_ENABLED)
+  /// When padded I/O is enabled, layouts\
+  /// CUDNN_RNN_DATA_LAYOUT_SEQ_MAJOR_UNPACKED, and
+  /// CUDNN_RNN_DATA_LAYOUT_BATCH_MAJOR_UNPACKED are permitted in RNN data
+  /// descriptors.
+  //----------------------------------------------------------------------------
   uint32_t auxiliary_flags_;
+
+  cudnnRNNDataLayout_t layout_;
 };
 
 struct DefaultParameters : public Parameters
@@ -189,6 +211,21 @@ struct DefaultParameters : public Parameters
   using Parameters::Parameters;
 
   DefaultParameters();
+};
+
+struct LSTMDefaultParameters : public Parameters
+{
+  using Parameters::Parameters;
+
+
+  LSTMDefaultParameters() = delete;
+  LSTMDefaultParameters(
+    const std::size_t input_size,
+    const std::size_t hidden_size,
+    const std::size_t projection_size,
+    const std::size_t number_of_layers,
+    const std::size_t maximum_sequence_length,
+    const std::size_t batch_size);
 };
 
 } // namespace RecurrentNeuralNetwork
