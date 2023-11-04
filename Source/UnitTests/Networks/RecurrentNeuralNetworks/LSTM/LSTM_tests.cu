@@ -1,3 +1,4 @@
+#include "Networks/RecurrentNeuralNetworks/LSTM/Setup.h"
 #include "RecurrentNeuralNetwork/ManageDescriptor/CellDescriptor.h"
 #include "RecurrentNeuralNetwork/ManageDescriptor/HiddenDescriptor.h"
 #include "RecurrentNeuralNetwork/ManageDescriptor/InputDescriptor.h"
@@ -17,9 +18,10 @@
 
 using RecurrentNeuralNetwork::DefaultParameters;
 using RecurrentNeuralNetwork::HostSequenceLengthArray;
+using RecurrentNeuralNetwork::LSTMDefaultParameters;
 using RecurrentNeuralNetwork::ManageDescriptor::CellDescriptor;
-using RecurrentNeuralNetwork::ManageDescriptor::HiddenDescriptor;
 using RecurrentNeuralNetwork::ManageDescriptor::HiddenDescriptor3Dim;
+using RecurrentNeuralNetwork::ManageDescriptor::HiddenDescriptor;
 using RecurrentNeuralNetwork::ManageDescriptor::InputDescriptor;
 using RecurrentNeuralNetwork::ManageDescriptor::LibraryHandleDropoutRNN;
 using RecurrentNeuralNetwork::ManageDescriptor::OutputDescriptor;
@@ -80,9 +82,32 @@ TEST(LSTMTests, SetupStepsExplicitlyForDigitRecognizer)
 
   WeightSpace weight_space {descriptors};
   WorkAndReserveSpaces spaces {descriptors, x_descriptor};
+}
 
+//------------------------------------------------------------------------------
+//------------------------------------------------------------------------------
+TEST(LSTMTests, SetupConstructs)
+{
+  LSTMDefaultParameters parameters {
+    27,
+    200,
+    100,
+    2,
+    29,
+    1};
 
+  SequenceLengthArray sequence_length_array {parameters};
+  {
+    HostSequenceLengthArray host_array {parameters};
+    host_array.set_all_to_maximum_sequence_length();
+    sequence_length_array.copy_host_input_to_device(host_array);
+  }
 
+  ::Networks::RecurrentNeuralNetworks::Setup setup {
+    parameters,
+    sequence_length_array};
+
+  SUCCEED();
 }
 
 } // namespace LSTM

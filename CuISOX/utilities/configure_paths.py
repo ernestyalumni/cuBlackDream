@@ -1,5 +1,5 @@
 """
-@file configure.py
+@file configure_paths.py
 
 @brief Helper functions that wrap Python 3's configparser.
 """

@@ -19,6 +19,12 @@ class WorkAndReserveSpaces
 {
   public:
 
+    //--------------------------------------------------------------------------
+    /// \ref 7.1.2.2. cudnnForwardMode_t
+    /// enumerated type to specify inference or training mode in RNN API; allows
+    /// library to tune size of workspace buffer.
+    /// CUDNN_FWD_MODE_INFERENCE or CUDNN_FWD_MODE_TRAINING only.
+    //--------------------------------------------------------------------------
     WorkAndReserveSpaces(
       DeepNeuralNetwork::CuDNNLibraryHandle& handle,
       RecurrentNeuralNetwork::ManageDescriptor::Descriptor& descriptor,

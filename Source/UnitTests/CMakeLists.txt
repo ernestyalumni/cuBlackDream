@@ -57,6 +57,7 @@ TARGET_LINK_LIBRARIES(Check
   AlgebraCU
   DataWrangling
   DeepNeuralNetworkCU
+  #NetworksCU
   RecurrentNeuralNetworkCU
   TensorsCU
   TransformerCU
